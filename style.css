@@ -1,0 +1,11 @@
+
+.headerIcon{
+  width: 250px;
+  height: 250px;
+  list-style-image: url('./../../../icons/logIn.png');
+}
+
+.headerMenu{
+  display: flex;
+  justify-content: flex-end;
+}
