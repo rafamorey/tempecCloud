@@ -8,8 +8,19 @@ body{
   background-image: url("/icons/background/1062.jpg");
   background-repeat: no-repeat;
   /* background-size: 10rem; */
-  min-height: 100vh;
+  min-height: 90vh;
   display: flex;
+}
+
+.buttonBack{
+  display: flex;
+  justify-content: flex-end;
+}
+
+.iconBack{
+  width: 30PX;
+  height: 30px;
+
 }
 
 form{
@@ -19,7 +30,7 @@ form{
   max-width:400px;
   border-radius: 10px;
   box-shadow: 0 5px 10px -5px rgb(0 0 0 / 30%);
-  padding: 4.5em 3em;
+  padding: 2.5em 3em;
   text-align: center;
 }
 
@@ -30,7 +41,7 @@ h2{
 
 form p{
   font-weight: 300;
-
+  margin-top: 30px;
 }
 
 form a{
@@ -39,7 +50,7 @@ form a{
 }
 
 .formContainer{
-  margin-top: 3em;
+  margin-top: 2em;
   display: grid;
   gap: 2.5em;
 }
@@ -51,7 +62,7 @@ form a{
 .formInputInside{
   width: 100%;
   background: none;
-  color:blueviolet;
+  color:#706c6c; 
   font-size: 1rem;
   padding: .6em .3em;
   border: none;
@@ -66,8 +77,13 @@ form a{
   color: #3866f2;
 }
 
+.formInputInside:focus,
+  .formInputInside:not(:placeholder-shown) ~ .formLine{
+    color:#4d4646;
+  }
+
 .formLabel{
-  color:blueviolet;
+  color:#706c6c;
   cursor: pointer;
   position: absolute;
   top:0;
@@ -77,13 +93,18 @@ form a{
 }
 
 .formSubmit{
-  background:#3866f2;
+  background-color:#3866f2;
   color:#fff;
   font-weight: 300;
   font-size: 1rem;
   padding: .8em 0;
   border: none;
   border-radius: .5em;
+  transition: background-color .3s;
+}
+
+.formSubmit:hover{
+  background-color:#0e48f7;
 }
 
 .formLine{
@@ -98,7 +119,13 @@ form a{
   transition: transform .4s;
 }
 
-.formInputInside:focus ~ .formLabel,
-  .formInputInside:not(:placeholder-shown) + .formLabel{
+.formInputInside:focus ~ .formLine,
+  .formInputInside:not(:placeholder-shown) ~ .formLine{
     transform: scale(1)
+  }   
+
+  @media (max-width: 425px){
+    h2{
+      font-size:1.8rem;
+    }
   }
