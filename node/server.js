@@ -1,6 +1,8 @@
 
 const express = require('express');
 const bodyParser = require('body-parser');
+
+const response = require('./response')
 const router = express.Router()
 
 var app = express();
@@ -12,14 +14,16 @@ router.get('/message', (req, res) =>{
   res.header({
     "customHeader": "Nuestro valor"
   })
-  res.send('Hola desde get')
+  // res.send('Hola desde get')
+  response.success(req, res, 'Lista de mensajes', 200)
 })
 
 router.post('/message', (req, res) =>{
-  res.status(201).send({
-    "error": "",
-    "body": "creado correctamente"
-  })
+  if(req.query.error == "ok"){
+    response.error(req, res, 'Error simulado', 400)
+  }else{
+    response.success(req,res,'Creado correctamente',201)
+  }
 })
 
 router.delete('/message', (req, res) =>{
@@ -28,6 +32,7 @@ router.delete('/message', (req, res) =>{
   res.send('mensaje ' + req.body.text + ' borrado exitosamente')
 })
 
+app.use('/app',express.static('public'))
 
 app.listen(3000)
 console.log('la app esta escuchando en el http://localhost:3000')
