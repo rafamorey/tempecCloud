@@ -4,12 +4,13 @@ const response = require('../../../network/response')
 const controller = require('./controller')
 
 router.get('/', (req, res) =>{
-  console.log(req.header)
-  res.header({
-    "customHeader": "Nuestro valor"
-  })
-  // res.send('Hola desde get')
-  response.success(req, res, 'Lista de mensajes', 200)
+  controller.getMessage()
+    .then((messageList) => {
+      response.success(req, res, messageList, 200)
+    })
+    .catch(e => {
+      response.error(req, res, "unexpected Error", 500, e)
+    })
 })
 
 router.post('/', (req, res) =>{
