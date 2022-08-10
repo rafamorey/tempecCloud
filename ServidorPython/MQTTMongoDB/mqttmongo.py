@@ -1,8 +1,16 @@
 #Programa Para Almacenar Datos
+from ast import Return
+from datetime import datetime
+from operator import truediv
+from pickle import FALSE
 from pymongo import MongoClient
 import paho.mqtt.client as mqtt
 import paho.mqtt.publish as publish
-import datetime
+import time
+import logging
+from concurrent.futures import ThreadPoolExecutor
+
+logging.basicConfig(level=logging.DEBUG, format='%(threadName)s: %(message)s')
 
 mongo = MongoClient('127.0.0.1', 27017)
 db = mongo['Tempec']
@@ -10,18 +18,24 @@ users = db['Users']
 devices = db['Devices']
 historial = db['Historial']
 
-def on_connect(client, userdata, flags,rc):
-    client.subscribe("Tempec/#")
-    print("Subscrito a Tempec y Contectado a Broker")
+def saber_si_existe(wanda):
+    print("saber si existe")
+    return True
+    '''
+    if str(devices.find_one({'_id': wanda.decode().split('/')[1]})) != "None":
+        print("TRUE")
+        return True
+    else:
+        print("FALSE")
+        return False
+    '''
 
-def on_message(client, userdata, msg):
-    #10/AAA002/16.7/29.0/0/0
-    #20/AAA001/16.0/0.5/0.5
-
-    #id:name:setpoint:temp_ext:temp_int:out_0:out_1:his_h:his_l:temp_min:date_min:temp_max:date_max:update_server
-    if str(devices.find_one({'_id': msg.payload.decode().split('/')[1]})) != "None":
-        if msg.payload.decode().split('/')[0] == '10':
-            print("10")
+def somebody_save_me(pay, top):
+    print("somebody save me")
+    if saber_si_existe(pay):
+        '''
+        if pay.decode().split('/')[0] == '10':
+            print("El tipo de mensaje es 10 y sé que hacer")
             doc = {
                 '_id': msg.payload.decode().split('/')[1],
                 '_temp_int': float(msg.payload.decode().split('/')[2]),
@@ -31,28 +45,41 @@ def on_message(client, userdata, msg):
                 'update_server' : str(datetime.datetime.now())
                 }
             print(doc)
-        if msg.payload.decode().split('/')[0] == '20':
-            print("20")
-
-        #print(str(devices.find_one({'_id': msg.payload.decode().split('/')[0]})).split(',')[1].split(':')[1].split("'")[1])
+        if pay.decode().split('/')[0] == '20':
+            print("El tipo de mensaje es 20 y aun no sé que hacer")
+        '''
+        #time.sleep(3) #Suponiendo que el todo el proceso de almacenado dure 3 segundos
+        #print(str(devices.find_one({'_id': pay.decode().split('/')[0]})).split(',')[1].split(':')[1].split("'")[1]) #Obtengo e imprimo el nombre del usuario del Tempec que ha enviado msg
+        logging.info(f"IF- Terminamos la tarea con el msg {pay} y el topic {top}" ) #Aqui imprimo cuando se termina la tarea y con que Thread se termino la tarea
     else:
-        print("El dispositivo no con el _id = " + msg.payload.decode().split('/')[1] + " no existe.")
+        logging.info(f"ELSE- Terminamos la tarea con el msg {pay} y el topic {top}" ) #Aqui imprimo cuando se termina la tarea y con que Thread se termino la tarea
+        #print("El dispositivo no con el _id = " + pay.decode().split('/')[1] + " no existe.")
 
-    '''
-    doc = {
-        'aux': d[0],
-        'Granja': d[0]
-    }
-    '''
-    #col.insert_one(doc)
-    
-    #print("Mensaje Insertado "  + msg.payload.decode() + " / " + str(datetime.datetime.now()))
-    #print(str(datetime.date.today()))
-    #print(str(datetime.datetime.now().hour))
+def on_connect(client, userdata, flags,rc):
+    client.subscribe("Monzav/Server")
+    client.publish("Celular/jojo/3", "Inicio de Trabajo ---> Fecha:" + str(datetime.now()))
+    print("Empezemos")
 
+def on_message(client, userdata, msg):
+    #print(str(client))
+    #print(str(userdata))
+    print(str(datetime.now()))
+    executor.submit(somebody_save_me, msg.payload, msg.topic)
+
+executor = ThreadPoolExecutor(max_workers=2)
 monzav = mqtt.Client()
 monzav.on_connect = on_connect
 monzav.on_message = on_message
 monzav.connect("test.mosquitto.org", 1883, 60)
-#monzav.loop_start()
+#monzav.loop_start() #once
 monzav.loop_forever()
+
+'''
+    #10/AAA002/16.7/29.0/0/0
+    #20/AAA001/16.0/0.5/0.5
+    #id:name:setpoint:temp_ext:temp_int:out_0:out_1:his_h:his_l:temp_min:date_min:temp_max:date_max:update_server  
+    #col.insert_one(doc)  
+    #print("Mensaje Insertado "  + msg.payload.decode() + " / " + str(datetime.datetime.now()))
+    #print(str(datetime.date.today()))
+    #print(str(datetime.datetime.now().hour))
+'''
