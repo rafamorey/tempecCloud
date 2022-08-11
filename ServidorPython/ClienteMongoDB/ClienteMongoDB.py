@@ -72,11 +72,12 @@ users.insert_one(doc)
 #db.collection.find().sort({age:-1}).limit(1) // for MAX
 #print(col.count_documents({}))
 
-#query = users.find_one({'_id' : '000AAA'})
-query = users.find({})
-print([x for x in query])
+query = users.find_one({'devices._id' : '00AA'})
+#query = users.find({})
+#print([x for x in query])
 #nombre = str(query)
 #print(nombre)
+print(query['name'])
 
 #print(mongo.list_database_names())
 #print(db.list_collection_names())

@@ -11,45 +11,39 @@ logging.basicConfig(level=logging.DEBUG, format='%(threadName)s: %(message)s')
 mongo = MongoClient('127.0.0.1', 27017)
 db = mongo['Tempec']
 users = db['Users']
-devices = db['Devices']
 historial = db['Historial']
 
 def saber_si_existe(wanda):
-    print("saber si existe")
-    return True
-    '''
-    if str(devices.find_one({'_id': wanda.decode().split('/')[1]})) != "None":
-        print("TRUE")
+    if str(users.find_one({'devices._id': wanda.split('/')[1]})['name']) != "None":
         return True
     else:
-        print("FALSE")
         return False
-    '''
-
-def somebody_save_me(pay, top):
-    print("somebody save me")
-    if saber_si_existe(pay):
-        '''
-        if pay.decode().split('/')[0] == '10':
+    
+    
+def somebody_save_me(msg_payload, msg_topic):   
+    if saber_si_existe(msg_payload):  
+        '''    
+        if msg_payload.split('/')[0] == '10':
             print("El tipo de mensaje es 10 y sé que hacer")
             doc = {
-                '_id': msg.payload.decode().split('/')[1],
-                '_temp_int': float(msg.payload.decode().split('/')[2]),
-                '_temp_ext': float(msg.payload.decode().split('/')[3]),
-                '_out_0': bool(msg.payload.decode().split('/')[4]),
-                '_out_1': bool(msg.payload.decode().split('/')[5]),
+                '_id': msg_payload.split('/')[1],
+                '_temp_int': float(msg_payload.split('/')[2]),
+                '_temp_ext': float(msg_payload.split('/')[3]),
+                '_out_0': bool(msg_payload.split('/')[4]),
+                '_out_1': bool(msg_payload.split('/')[5]),
                 'update_server' : str(datetime.datetime.now())
                 }
             print(doc)
-        if pay.decode().split('/')[0] == '20':
+        if msg_payload.split('/')[0] == '20':
             print("El tipo de mensaje es 20 y aun no sé que hacer")
         '''
         #time.sleep(3) #Suponiendo que el todo el proceso de almacenado dure 3 segundos
         #print(str(devices.find_one({'_id': pay.decode().split('/')[0]})).split(',')[1].split(':')[1].split("'")[1]) #Obtengo e imprimo el nombre del usuario del Tempec que ha enviado msg
-        logging.info(f"IF- Terminamos la tarea con el msg {pay} y el topic {top}" ) #Aqui imprimo cuando se termina la tarea y con que Thread se termino la tarea
+        logging.info(f"IF- Terminamos la tarea con el msg {msg_payload} y el topic {msg_topic}" ) #Aqui imprimo cuando se termina la tarea y con que Thread se termino la tarea
     else:
-        logging.info(f"ELSE- Terminamos la tarea con el msg {pay} y el topic {top}" ) #Aqui imprimo cuando se termina la tarea y con que Thread se termino la tarea
-        #print("El dispositivo no con el _id = " + pay.decode().split('/')[1] + " no existe.")
+        logging.info(f"ELSE- Terminamos la tarea con el msg {msg_payload} y el topic {msg_topic}" ) #Aqui imprimo cuando se termina la tarea y con que Thread se termino la tarea
+        #print("El dispositivo no con el _id = " + msg_payload.split('/')[1] + " no existe.")
+    
 
 def on_connect(client, userdata, flags,rc):
     client.subscribe("Tempec/Server")
@@ -60,7 +54,7 @@ def on_message(client, userdata, msg):
     #print(str(client))
     #print(str(userdata))
     print(str(datetime.now()))
-    executor.submit(somebody_save_me, msg.payload, msg.topic)
+    executor.submit(somebody_save_me, msg.payload.decode(), msg.topic)
 
 executor = ThreadPoolExecutor(max_workers=2)
 monzav = mqtt.Client()
