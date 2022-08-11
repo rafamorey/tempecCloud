@@ -3,6 +3,7 @@
 #000AAA Users
 
 from datetime import datetime
+from winreg import QueryInfoKey
 # from unittest import result
 from pymongo import MongoClient
 
@@ -21,36 +22,36 @@ Tempec
         tipo:_id:temp_int:temp_ext:out_0:out_1
         id:name:setpoint:temp_ext:temp_int:out_0:out_1:his_h:his_l:temp_min:date_min:temp_max:date_max:last_update //In
 """
-
+'''
 doc = {
-    '_id':'AA01',
+    '_id':'AA02',
     'super': True,
-    'name':'Eva Mendez',
+    'name':'Jessie G',
     'password':'tiamomonzav',
     'phone': 6622902042,
-    'email': 'eva@gmail.com',
+    'email': 'jess@gmail.com',
     'devices': [
     {
-        '_id': '00AD',
-        'name': 'Fescocos',
-        'location': 'Mexico, Sonora, Obregon, Caudillo',
+        '_id': '00AF',
+        'name': 'Freezer G',
+        'location': 'USA, California, Sacramento, Jessie_Farm',
         'setpoint': 18.0,
-        'histeresis_high': 2.5,
+        'histeresis_high': 0.5,
         'histeresis_low': 1.0,
         'last_update': str(datetime.now())
     },
     {
-        '_id': '00AE',
-        'name': 'Congelame',
-        'location': 'Mexico, Sonora, Obregon, Hipersona',
+        '_id': '00AG',
+        'name': 'JG',
+        'location': 'USA, Californnia, Las Vegas, International Farm',
         'setpoint': 18.5,
-        'histeresis_high': 1.0,
-        'histeresis_low': 1.0,
+        'histeresis_high': 0.2,
+        'histeresis_low': 0.2,
         'last_update': str(datetime.now())
     }]
         }
-
-users.insert_one(doc)
+'''
+#users.insert_one(doc)
 
 '''
 doc = {
@@ -72,12 +73,13 @@ users.insert_one(doc)
 #print(col.count_documents({}))
 
 #query = users.find_one({'_id' : '000AAA'})
+query = users.find({})
+print([x for x in query])
 #nombre = str(query)
 #print(nombre)
 
-
-print(mongo.list_database_names())
-print(db.list_collection_names())
+#print(mongo.list_database_names())
+#print(db.list_collection_names())
 
 #users.find({},{'_id':1})
 
@@ -89,8 +91,8 @@ users.find(query,projection)
 #results = users.find({})
 #print([x['_admin'] for x in results])
 
-results = users.find({'devices.name': {"$ne":'x'}},{'devices._id':1})
-print([x for x in results])
+#results = users.find({'devices.name': {"$ne":'x'}},{'devices._id':1})
+#print([x for x in results])
 
 #users.aggregate([{'$project' : {'_admin':'$_admin '}}])
 #clientes.drop()

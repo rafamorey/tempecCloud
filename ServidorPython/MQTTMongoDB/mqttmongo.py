@@ -1,12 +1,8 @@
 #Programa Para Almacenar Datos
-from ast import Return
 from datetime import datetime
-from operator import truediv
-from pickle import FALSE
 from pymongo import MongoClient
 import paho.mqtt.client as mqtt
 import paho.mqtt.publish as publish
-import time
 import logging
 from concurrent.futures import ThreadPoolExecutor
 
@@ -56,9 +52,9 @@ def somebody_save_me(pay, top):
         #print("El dispositivo no con el _id = " + pay.decode().split('/')[1] + " no existe.")
 
 def on_connect(client, userdata, flags,rc):
-    client.subscribe("Monzav/Server")
-    client.publish("Celular/jojo/3", "Inicio de Trabajo ---> Fecha:" + str(datetime.now()))
-    print("Empezemos")
+    client.subscribe("Tempec/Server")
+    #client.publish("Celular/jojo/3", "Inicio de Trabajo ---> Fecha:" + str(datetime.now()))
+    print("Tonight's the night")
 
 def on_message(client, userdata, msg):
     #print(str(client))
