@@ -1,27 +1,30 @@
-#Consultas PyMongo
 #AAA000 Devices
 #000AAA Users
 
 from datetime import datetime
-from winreg import QueryInfoKey
-# from unittest import result
 from pymongo import MongoClient
 
 mongo = MongoClient('127.0.0.1', 27017)
 db = mongo['Tempec']
 users = db['Users']
-#historial = db['Historial']
+historial = db['Historial']
 
-"""
-Tempec
-    Users
-        id:super:admin:pass:phone:email:id_devices{}
-    Devices
-        id:name:location:setpoint:his_h:his_l:last_update
-    Historial
-        tipo:_id:temp_int:temp_ext:out_0:out_1
-        id:name:setpoint:temp_ext:temp_int:out_0:out_1:his_h:his_l:temp_min:date_min:temp_max:date_max:last_update //In
-"""
+print("1- Registrar Cliente y Dispositivo")
+print("2- Registrar Dispositivo")
+print("3- Nosé")
+
+opcion = input()
+
+
+if opcion == '1':
+    print("opcion 1")
+elif opcion == '2':
+    print("opcion 2")
+elif opcion == '3':
+    print("opcion 3")
+else:
+    print("No seas pende**")
+
 '''
 doc = {
     '_id':'AA02',
@@ -51,44 +54,30 @@ doc = {
     }]
         }
 '''
-#users.insert_one(doc)
-
-'''
-doc = {
-        '_id': '000AAB',
-        '_super': '0',
-        '_admin': 'Eva Mendez',
-        '_pass': 'tiamo_monzav2',
-        '_phone': 6622902042,
-        '_email': 'emendez@gmail.com',
-        'id_devices': ['AAA003'],
-        'last_update': str(datetime.now())
-        }
-users.insert_one(doc)
-'''
 
 #col.delete_many({'Valor':{'$gt':'20'}})
 
 #db.collection.find().sort({age:-1}).limit(1) // for MAX
 #print(col.count_documents({}))
+#print(historial.count_documents({}))
+#query = users.find_one({'devices._id' : '00AA'})
 
-query = users.find_one({'devices._id' : '00AA'})
+#query = users.aggregate([{"$unwind": "$devices"},{'$match': {"devices._id": {"$eq":'00AA'}}},{"$group": {'_id':"$devices.setpoint"}}])
+
+#query = users.count_documents({'devices._id': '00AA'})
+#query = historial.count_documents({})
+#print(query)
+#print(type(query))
 #query = users.find({})
 #print([x for x in query])
 #nombre = str(query)
 #print(nombre)
-print(query['name'])
+#print(query['name'])
 
 #print(mongo.list_database_names())
 #print(db.list_collection_names())
 
 #users.find({},{'_id':1})
-
-'''
-query={'x':1}
-projection={'_id':0, '_admin':1} # show x but not show _id
-users.find(query,projection)
-'''
 #results = users.find({})
 #print([x['_admin'] for x in results])
 

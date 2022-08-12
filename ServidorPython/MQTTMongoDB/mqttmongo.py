@@ -1,75 +1,133 @@
-#Programa Para Almacenar Datos
+#PROGRAMA DE PRUEBA PARA FILTRAR Y ALMACENAR DATOS
+
+# librerias & cositas
 from datetime import datetime
 from pymongo import MongoClient
 import paho.mqtt.client as mqtt
 import paho.mqtt.publish as publish
 import logging
+import time
 from concurrent.futures import ThreadPoolExecutor
 
-logging.basicConfig(level=logging.DEBUG, format='%(threadName)s: %(message)s')
+# LEER ==>                                                                                                                          <== LEER
+# LEER ==> Voy a crear otro archivo en la carpeta PythonH para hacer pruebas con aknolach y maxima/minima, se va a llamar 'cositas' <== LEER
+# LEER ==>                                                                                                                          <== LEER
 
-mongo = MongoClient('127.0.0.1', 27017)
-db = mongo['Tempec']
-users = db['Users']
-historial = db['Historial']
-
-def saber_si_existe(wanda):
-    if str(users.find_one({'devices._id': wanda.split('/')[1]})['name']) != "None":
+# saber si existe el dispositivo
+def if_exist(msg_device_id):
+    if users.count_documents({'devices._id':msg_device_id}):
         return True
     else:
         return False
-    
-    
-def somebody_save_me(msg_payload, msg_topic):   
-    if saber_si_existe(msg_payload):  
-        '''    
-        if msg_payload.split('/')[0] == '10':
-            print("El tipo de mensaje es 10 y sé que hacer")
-            doc = {
-                '_id': msg_payload.split('/')[1],
-                '_temp_int': float(msg_payload.split('/')[2]),
-                '_temp_ext': float(msg_payload.split('/')[3]),
-                '_out_0': bool(msg_payload.split('/')[4]),
-                '_out_1': bool(msg_payload.split('/')[5]),
-                'update_server' : str(datetime.datetime.now())
-                }
-            print(doc)
-        if msg_payload.split('/')[0] == '20':
-            print("El tipo de mensaje es 20 y aun no sé que hacer")
-        '''
-        #time.sleep(3) #Suponiendo que el todo el proceso de almacenado dure 3 segundos
-        #print(str(devices.find_one({'_id': pay.decode().split('/')[0]})).split(',')[1].split(':')[1].split("'")[1]) #Obtengo e imprimo el nombre del usuario del Tempec que ha enviado msg
-        logging.info(f"IF- Terminamos la tarea con el msg {msg_payload} y el topic {msg_topic}" ) #Aqui imprimo cuando se termina la tarea y con que Thread se termino la tarea
-    else:
-        logging.info(f"ELSE- Terminamos la tarea con el msg {msg_payload} y el topic {msg_topic}" ) #Aqui imprimo cuando se termina la tarea y con que Thread se termino la tarea
-        #print("El dispositivo no con el _id = " + msg_payload.split('/')[1] + " no existe.")
-    
 
+# saber si es el primer msg
+def first_msg(msg_device_id):
+    if historial.count_documents({'_id':msg_device_id}) <= 0:
+        return True
+    else:
+        return False
+
+# insertar el primer msg de tipo 10 en historial
+def insert_first(msg_payload):
+
+    # consulta para obetenr datos faltantes   
+    consult = users.aggregate([{"$unwind": "$devices"},
+                                {'$match': {"devices._id": {"$eq": msg_payload.split('/')[1]}}},
+                                {"$project": {'nombre':"$devices.name","setpoint":"$devices.setpoint","hish":"$devices.histeresis_high","hisl":"$devices.histeresis_low"}}])
+
+    # obteniendo valor de variables
+    for x in consult:
+        name = x['nombre']
+        setp = x['setpoint']
+        hish = x['hish']
+        hisl = x['hisl']
+
+    # creando documento o diccionario
+    dic = {
+        '_id': msg_payload.split('/')[1],
+        '_name':name,
+        '_setpoint':setp,
+        '_temperatura_int': float(msg_payload.split('/')[2]),
+        '_temperatura_ext': float(msg_payload.split('/')[3]),
+        '_out_0': bool(msg_payload.split('/')[4]),
+        '_out_1': bool(msg_payload.split('/')[5]),
+        '_histeresis_high': hish,
+        '_histeresis_low': hisl,
+        '_temperatura_maxima': float(msg_payload.split('/')[2]),
+        '_date_maxima': datetime.now(),
+        '_temperatura_minima': float(msg_payload.split('/')[2]),
+        '_date_minima': datetime.now(),
+        '_date': datetime.now()
+    }
+    historial.insert_one(dic) # Esto es para insertarlo
+    print("Se inserto el seguiente documento/diccionario: ")
+    print(dic)
+    print("=======================================================================================================================================================")
+    
+# funcion principal
+def main(msg_payload):   
+    # -------------------------------------------------------------------------> saber si existe el dispositivo
+    if if_exist(msg_payload.split('/')[1]):  
+        # --------------------------------------------------------------> msg es de tipo 10
+        if msg_payload.split('/')[0] == '10':
+            # --------------------------------------------------> es el primer msg
+            if first_msg(msg_payload.split('/')[1]):
+                insert_first(msg_payload)
+            # --------------------------------------------------> no es el primer msg
+            else:
+                # funcion para aknolach
+                # funcion para maxima/minima
+                # funcion para insertar
+                pass
+        # --------------------------------------------------------------> msg es de tipo 20
+        elif msg_payload.split('/')[0] == '20':
+            # funcion para actualizar setpoint e histeresis
+            pass
+        # --------------------------------------------------------------> msg es de tipo ??
+        else:
+            print('soy un ??')
+            pass
+    # ------------------------------------------------------------------------> el dispositivo no existe
+    else:
+        pass
+    
+# al conectarme al broker
 def on_connect(client, userdata, flags,rc):
     client.subscribe("Tempec/Server")
-    #client.publish("Celular/jojo/3", "Inicio de Trabajo ---> Fecha:" + str(datetime.now()))
-    print("Tonight's the night")
+    logo()
 
+#al recivir un msg
 def on_message(client, userdata, msg):
-    #print(str(client))
-    #print(str(userdata))
-    print(str(datetime.now()))
-    executor.submit(somebody_save_me, msg.payload.decode(), msg.topic)
+    executor.submit(main, msg.payload.decode())
 
-executor = ThreadPoolExecutor(max_workers=2)
-monzav = mqtt.Client()
-monzav.on_connect = on_connect
-monzav.on_message = on_message
-monzav.connect("test.mosquitto.org", 1883, 60)
-#monzav.loop_start() #once
-monzav.loop_forever()
+# imprimir logo
+def logo():
+    print("TempecTempecTempec       TempecTempecTempec      TempecTempec      TempecTempec      TempecTempecTempec      TempecTempecTempec      TempecTempecTempec")
+    time.sleep(0.2)
+    print("      Tempec             Tempec                  Tempec   TempecTempec   Tempec      Tempec      Tempec      Tempec                  Tempec")
+    time.sleep(0.2)
+    print("      Tempec             TempecTempecTempec      Tempec      Tempec      Tempec      TempecTempecTempec      TempecTempecTempec      Tempec")
+    time.sleep(0.2)
+    print("      Tempec             Tempec                  Tempec                  Tempec      Tempec                  Tempec                  Tempec")
+    time.sleep(0.2)
+    print("      Tempec             TempecTempecTempec      Tempec                  Tempec      Tempec                  TempecTempecTempec      TempecTempecTempec")
+    print("=======================================================================================================================================================")
 
+
+logging.basicConfig(level=logging.DEBUG, format='%(threadName)s: %(message)s') #==> Esto es para poder saber con que thread se ejecuto una tarea
+mongo = MongoClient('127.0.0.1', 27017)                                        #==> Aqui se crea un cliente y se conecta localmente a mongodb
+db = mongo['Tempec']                                                           #==> Uso la database Tempec que esta en mongodb
+users = db['Users']                                                            #==> Uso la coleccion Users que esta en la database Tempec
+historial = db['Historial']                                                    #==> Uso la coleccion Historial que esta en la database Tempec
+executor = ThreadPoolExecutor(max_workers=8)                                   #==> Determino la cantidad de treads que tendra mi thread'spool
+monzav = mqtt.Client()                                                         #==> Aqui creo un cliente mqtt
+monzav.on_connect = on_connect                                                 #==> Cuando el cliente mqtt se conecte ejecutara la funcion on_connect
+monzav.on_message = on_message                                                 #==> Cuando el cliente mqtt reciva un msg ejecutara la funcion on_message
+monzav.connect("test.mosquitto.org", 1883, 60)                                 #==> Se conecta al broker de mosquitto
+monzav.loop_forever()                                                          #==> Se inicia loop mqtt
+
+# tipos de msg
 '''
-    #10/AAA002/16.7/29.0/0/0
-    #20/AAA001/16.0/0.5/0.5
-    #id:name:setpoint:temp_ext:temp_int:out_0:out_1:his_h:his_l:temp_min:date_min:temp_max:date_max:update_server  
-    #col.insert_one(doc)  
-    #print("Mensaje Insertado "  + msg.payload.decode() + " / " + str(datetime.datetime.now()))
-    #print(str(datetime.date.today()))
-    #print(str(datetime.datetime.now().hour))
+    10/AAA002/16.7/29.0/0/0
+    20/AAA001/16.0/0.5/0.5
 '''
