@@ -10,7 +10,7 @@ import time
 from concurrent.futures import ThreadPoolExecutor
 
 # LEER ==>                                                                                                                          <== LEER
-# LEER ==> Voy a crear otro archivo en la carpeta PythonH para hacer pruebas con aknolach y maxima/minima, se va a llamar 'cositas' <== LEER
+# LEER ==> Voy a crear otro archivo para hacer pruebas con aknolach y maxima/minima, se va a llamar 'cositas' <== LEER
 # LEER ==>                                                                                                                          <== LEER
 
 # saber si existe el dispositivo
