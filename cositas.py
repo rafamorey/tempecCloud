@@ -1,3 +1,4 @@
+from asyncio.windows_events import NULL
 from datetime import datetime
 from pymongo import MongoClient
 
@@ -5,13 +6,24 @@ mongo = MongoClient('127.0.0.1', 27017)
 db = mongo['Tempec']
 users = db['Users']
 historial = db['Historial']
+pruebas = db['pruebas']
 
-#col.delete_many({'Valor':{'$gt':'20'}})
 
 #db.collection.find().sort({age:-1}).limit(1) // for MAX
 #print(col.count_documents({}))
 #print(historial.count_documents({}))
 #query = users.find_one({'devices._id' : '00AA'})
+doc = {
+    '_id':'AA05',
+    'super': True,
+    'name':'Jessica Biel',
+    'password':'tiamomonzav',
+    'phone': 6622902042,
+    'email': 'biel@gmail.com',
+    'devices': []
+        }
+#pruebas.insert_one(doc)
+#x = pruebas.find_one({'_id':'AA05'})
 '''
 query = users.aggregate([{"$unwind": "$devices"},
                                 {'$match': {"devices._id": {"$eq": '00AA'}}},
@@ -19,32 +31,56 @@ query = users.aggregate([{"$unwind": "$devices"},
 '''
 # ==> query = users.find({'devices._id':'00AA'},{'_id':False, 'devices':{'$elemMatch':{'_id':'00AA'}}})
 # ==> query = users.find({'devices._id':'00AA'},{'devices.$':True})
-#query = users.count_documents({'devices._id': '00AA'})
-#query = historial.count_documents({})
-#print(query)
-#print(type(query))
-#query = users.find({})
-#print([x for x in query])
-#nombre = str(query)
-#print(nombre)
-#print(query['name'])
-#print(query)
+#pruebas.find({'_id':'AA05'},{'devices.$':True})
 
-#print(mongo.list_database_names())
-#print(db.list_collection_names())
+# ==> Obtener subdocumentos de documento
+users.find({'devices._id':'00AA'},{'_id':False, 'devices':{'$elemMatch':{'_id':'00AA'}}})
 
-#users.find({},{'_id':1})
-#results = users.find({})
-#print([x['_admin'] for x in results])
+# ==> Agregar subdocumento a documento
+pruebas.update_one({'_id': 'AA05'}, {'$push' : {'devices' : {'_id':'AA0H', 'name':'Moam'}}})
 
-#results = users.find({'devices.name': {"$ne":'x'}},{'devices._id':1})
-#print([x for x in results])
+# ==> Obtener el valor maximo/minimo
+a = users.aggregate([{
+    '$group': {'_id': 'AA00', 'max': {'$max': '$phone'}}
+}])
+for g in a:
+    print(g)
 
-#users.aggregate([{'$project' : {'_admin':'$_admin '}}])
-#clientes.drop()
+# ==> Borrar el primer documento con id
+pruebas.delete_one({'_id': 'AA06'})
 
-#users.delete_one({'_id':'000AAB'})
+# ==> Borrar una coleccion
+pruebas.drop()
 
+# ==> Borrar todo donde phone > 20
+users.delete_many({'phone':{'$gt':'20'}})
+
+# ==> Obtener cuenta de docuemtnos con filtro
+users.count_documents({'_id': '00AA'})
+
+# ==> Obteener cuenta de documentos sin filtro
+historial.count_documents({})
+
+# ==> Obtener todo
+users.find({})
+
+# ==> Obtener lista de db
+print(mongo.list_database_names())
+
+# ==> Obtener lista de colecciones
+print(db.list_collection_names())
+
+# ==> Obtener todos y solo los _id
+results = users.find({},{'_id':1})
+print([x for x in results])
+# ||
+results = users.find({})
+print([x['_admin'] for x in results])
+# ||
+results = users.find({'devices.name': {"$ne":'x'}},{'devices._id':1})
+print([x for x in results])
+
+# Modelo para coleccion 'users'
 '''
 doc = {
     '_id':'AA02',

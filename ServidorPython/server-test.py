@@ -64,6 +64,11 @@ def insert_first(msg_payload):
     print(dic)
     print("=======================================================================================================================================================")
     
+# saber si temperatura es acknowlaged > 20%
+def funcion_acknowlaged(temperatura_interior, temperatura_exterior):
+    last_temperatura_interior = historial.find_one({})
+    pass
+
 # funcion principal
 def main(msg_payload):   
     # -------------------------------------------------------------------------> saber si existe el dispositivo
@@ -75,7 +80,8 @@ def main(msg_payload):
                 insert_first(msg_payload)
             # --------------------------------------------------> no es el primer msg
             else:
-                # funcion para aknolach
+                # funcion para acknowlaged
+                funcion_acknowlaged(msg_payload.split('/')[2],msg_payload.split('/')[3])
                 # funcion para maxima/minima
                 # funcion para insertar
                 pass
