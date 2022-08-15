@@ -47,10 +47,10 @@ def insert_first(msg_payload):
         '_id': msg_payload.split('/')[1],
         '_name':name,
         '_setpoint':setp,
-        '_temperatura_int': float(msg_payload.split('/')[2]),
-        '_temperatura_ext': float(msg_payload.split('/')[3]),
-        '_out_0': bool(msg_payload.split('/')[4]),
-        '_out_1': bool(msg_payload.split('/')[5]),
+        '_temperatura_interior': float(msg_payload.split('/')[2]),
+        '_temperatura_exterior': float(msg_payload.split('/')[3]),
+        '_out_0': bool(int(msg_payload.split('/')[4])),
+        '_out_1': bool(int(msg_payload.split('/')[5])),
         '_histeresis_high': hish,
         '_histeresis_low': hisl,
         '_temperatura_maxima': float(msg_payload.split('/')[2]),
@@ -59,15 +59,31 @@ def insert_first(msg_payload):
         '_date_minima': datetime.now(),
         '_date': datetime.now()
     }
-    historial.insert_one(dic) # Esto es para insertarlo
-    print("Se inserto el seguiente documento/diccionario: ")
+    #historial.insert_one(dic) # Esto es para insertarlo
+    print("Se inserto el seguiente documento/diccionario en historial: ")
     print(dic)
     print("=======================================================================================================================================================")
     
 # saber si temperatura es acknowlaged > 20%
-def funcion_acknowlaged(temperatura_interior, temperatura_exterior):
-    last_temperatura_interior = historial.find_one({})
-    pass
+def funcion_acknowlaged(id_d, temperatura_interior, temperatura_exterior):
+    r = 0
+
+    for g in historial.find({'_id_h': id_d},{'_id':0,'_temperatura_interior':1, '_temperatura_exterior':1}).sort('_date',-1).limit(1):
+        last_temperatura_interior = g['_temperatura_interior']
+        last_temperatura_exterior = g['_temperatura_exterior']
+
+    if temperatura_interior > (last_temperatura_interior * 1.2) or temperatura_interior < (last_temperatura_interior * 0.8) :
+        r = r + 10
+    else:
+        pass
+
+    if temperatura_exterior > (last_temperatura_exterior * 1.2) or temperatura_exterior < (last_temperatura_exterior * 0.8):
+        r = r + 1
+    else:
+        pass
+
+    return r
+    
 
 # funcion principal
 def main(msg_payload):   
@@ -81,7 +97,15 @@ def main(msg_payload):
             # --------------------------------------------------> no es el primer msg
             else:
                 # funcion para acknowlaged
-                funcion_acknowlaged(msg_payload.split('/')[2],msg_payload.split('/')[3])
+                ft = funcion_acknowlaged(msg_payload.split('/')[1],msg_payload.split('/')[2],msg_payload.split('/')[3])
+                if ft == 0:
+                    pass
+                elif ft == 1:
+                    pass
+                elif ft == 10:
+                    pass
+                elif ft == 11:
+                    pass
                 # funcion para maxima/minima
                 # funcion para insertar
                 pass
@@ -102,7 +126,7 @@ def on_connect(client, userdata, flags,rc):
     client.subscribe("Tempec/Server")
     logo()
 
-#al recivir un msg
+# al recivir un msg
 def on_message(client, userdata, msg):
     executor.submit(main, msg.payload.decode())
 
