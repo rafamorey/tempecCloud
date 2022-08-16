@@ -50,6 +50,15 @@ x = pruebas.aggregate([{'$match': {'_id_h': '00AA'}},
 for g in x:
     print(g)
     
+# ==> Actualizar datos de un subdocumento
+users.update_one({'devices._id': 'AA00'},{'$set': {
+                                        'devices.$.name' : 'Wanda',
+                                        'devices.$.location' : 'Mi corazon',
+                                         'devices.$.setpoint' : 16.0,
+                                         'devices.$.histeresis_high' : 2.0, 
+                                         'devices.$.histeresis_low': 0.7 
+                                         }})
+                                         
 # ==> Borrar el primer documento con id
 pruebas.delete_one({'_id': 'AA06'})
 
