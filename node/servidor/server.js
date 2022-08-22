@@ -3,7 +3,7 @@ const express = require('express');
 // empezamos a utilizar el convertidor de body de express
 const bodyParser = require('body-parser');
 // llamamos al archivo que conecta con la base de datos
-const db = require("./public/db")
+const db = require("./db")
 // llamamos al archivo que tiene las routas
 const router = require('./network/routes')
 

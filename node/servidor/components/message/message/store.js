@@ -1,8 +1,13 @@
+
+// importamos el archivo model
 const Model = require("./model")
 
+// funcion para agregar mensajes, recibe el mensaje de controller del componente
 function addMessage(message){
 //   list.push(message)
+// la variable myMessage es un nuevo modelo creado con lo que tenga message
     const myMessage = new Model(message)
+    // guardamos myMessage en la dataBase
     myMessage.save()
 }
 
