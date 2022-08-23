@@ -14,7 +14,7 @@ var app = express();
 // usamos el convertidor de body para pasarlo a json
 app.use(bodyParser.json())
 
-// indicamos al router que utilice app
+// le pasamos a router el objeto en json de app
 router(app)
 
 // al recibir este endpoint regresamos el archivo estatico guardado en public, el archivo debe de llamarse index.html
