@@ -5,12 +5,18 @@ function addEnterprise(enterprise){
   return myEnterprise.save() 
 }
 
+function addPassword(pass){
+  const myEnterprise = new Model(pass)
+  return myEnterprise.save() 
+}
+
 async function getEnterprise(){
-  const enterprises = await Model.find(filter)
+  const enterprises = await Model.find()
   return enterprises
 }
 
 module.exports = {
   addEnterprise,
+  addPassword,
   getEnterprise
 }

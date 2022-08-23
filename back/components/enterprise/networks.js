@@ -14,7 +14,7 @@ router.get('/', (req,res) => {
 })
 
 router.post('/', (req,res) =>{
-  controller.addEnterprise(req.body.enterprise)
+  controller.addEnterprise(req)
     .then(data => {
       response.success(req,res,data,201)
     })
@@ -22,5 +22,6 @@ router.post('/', (req,res) =>{
       response.error(req,res, 'internal error', 500, err)
     })
 })
+
 
 module.exports = router
