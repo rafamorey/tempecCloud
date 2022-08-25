@@ -24,6 +24,17 @@ query = users.find({'devices._id':'00AA'},{'devices.$':True})
 for r in query:
     print(r)
 
+# ==> Obtener el indix de un array
+for r in pruebas.aggregate([{
+    '$project':{
+        '_id':0, 
+        'index': {
+            '$indexOfArray': ["$users.u_id", 'AAZ']
+            }
+            }
+            }]):
+    print(r['index'])
+
 # ==> Agregar subdocumento a documento
 pruebas.update_one({'_id': 'AA05'}, {'$push' : {'devices' : {'_id':'AA0H', 'name':'Moam'}}})
 
@@ -117,7 +128,12 @@ pruebas.aggregate([{'$group' : { '_id' : {'$lt' : ['$edad',18]}, 'edades' : {'$p
 # ==> Si queremos agrupar los estudiantes por el programa que cursan:
 pruebas.aggregate([{'$group' : { '_id ': '$programa', 'count' : {'$sum' : 1}}}])
 
-
+# print(e.count_documents({
+#     '$and':[
+#         {'e_id':'AA'},
+#         {'users.u_id':'AAA'}
+#     ]
+# }))
 # ==> Operadores en MongoDB
 # $ne  !=
 # $eq  ==
@@ -138,82 +154,100 @@ pruebas.aggregate([{'$group' : { '_id ': '$programa', 'count' : {'$sum' : 1}}}])
 # db.libros.find({ precio: { $gt:40 }})
 
 # Modelo para coleccion 'users'
-'''
-doc = {
-    '_id':'AA02',
-    'super': True,
-    'name':'Jessie G',
-    'password':'tiamomonzav',
-    'phone': 6622902042,
-    'email': 'jess@gmail.com',
-    'devices': [
-    {
-        '_id': '00AF',
-        'name': 'Freezer G',
-        'location': 'USA, California, Sacramento, Jessie_Farm',
-        'setpoint': 18.0,
-        'histeresis_high': 0.5,
-        'histeresis_low': 1.0,
-        'last_update': str(datetime.now())
-    },
-    {
-        '_id': '00AG',
-        'name': 'JG',
-        'location': 'USA, Californnia, Las Vegas, International Farm',
-        'setpoint': 18.5,
-        'histeresis_high': 0.2,
-        'histeresis_low': 0.2,
-        'last_update': str(datetime.now())
-    }]
+
+documento = {
+    'e_id':'A0',
+    'enterprise':"Jolie Industries",
+    'e_password':'AyM<3',
+    'e_phone':6441767450,
+    'e_email':'a.jolie@gmail.com',
+    'users': [
+        {
+            'u_id':'0A',
+            'u_name':'Jesus Monzav',
+            'u_password':'cosita123',
+            'u_phone':6441767451,
+            'u_email':'rmonzav@gmail.com',
+            'devices': [
+                {
+                    'd_id':'A000',
+                    'd_name':'Freezer',
+                    'location':'USA, California, Sacramento, Porki 1',
+                    'setpoint':18.0,
+                    'histeresis_high':1.5,
+                    'histeresis_low':0.5,
+                    'last_update':datetime.now()
+                },
+                {
+                    'd_id':'A001',
+                    'd_name':'Cooler',
+                    'location':'USA, California, Sacramento, Porki 2',
+                    'setpoint':16.0,
+                    'histeresis_high':1.0,
+                    'histeresis_low':1.0,
+                    'last_update':datetime.now()
+                }
+            ]
+        },
+        {
+            'u_id':'0B',
+            'u_name':'Jorge Sentada',
+            'u_password':'cochiloco5',
+            'u_phone':6441767452,
+            'u_email':'jsent@gmail.com',
+            'devices': [
+                {
+                    'd_id':'A002',
+                    'd_name':'MariFer',
+                    'location':'Mexico, Sonora, Obregon, Caudillo',
+                    'setpoint':18.0,
+                    'histeresis_high':1.5,
+                    'histeresis_low':0.5,
+                    'last_update':datetime.now()
+                }
+            ]
         }
+    ]
+}
 
-//Tarea 1
+# db.getCollection("students").aggregate([
+#     {$unwind:"$scores"},
+#     {$group: { _id: "$name", promedio: {$avg: "$scores.score"}}}
+# ])
 
-db.getCollection("students").aggregate([
-    {$unwind:"$scores"},
-    {$group: { _id: "$name", promedio: {$avg: "$scores.score"}}}
-])
+# db.getCollection("students").aggregate([
+#     {$unwind:"$scores"},
+#     {$match: {"scores.type":{$ne:"quiz"}}},
+#     {$group: { _id: "$name", promedio_no_quiz: {$avg: "$scores.score"}}}
+# ])
 
-//Tarea 2
+# db.getCollection("students").aggregate([
+#     {$unwind:"$scores"},
+#     {$match: {"scores.type":{$eq:"exam"}}},
+#     {$project:{scorr:"$scores.score"}},
+#     {$group:{_id:{},Promedio_Global:{$avg:"$scorr"}}}
+# ])
 
-db.getCollection("students").aggregate([
-    {$unwind:"$scores"},
-    {$match: {"scores.type":{$ne:"quiz"}}},
-    {$group: { _id: "$name", promedio_no_quiz: {$avg: "$scores.score"}}}
-])
-
-//Tarea 3
-
-db.getCollection("students").aggregate([
-    {$unwind:"$scores"},
-    {$match: {"scores.type":{$eq:"exam"}}},
-    {$project:{scorr:"$scores.score"}},
-    {$group:{_id:{},Promedio_Global:{$avg:"$scorr"}}}
-])
-
-//db.getCollection("students").find({})
-
-function mapeame()
-{
-    var k = this.name;
+# function mapeame()
+# {
+#     var k = this.name;
     
-    for(var x = 0; x < this.scores.length; x++)
-    {
-        var v = this.scores[x].score;
-        emit(k, v);
-    }
-}
+#     for(var x = 0; x < this.scores.length; x++)
+#     {
+#         var v = this.scores[x].score;
+#         emit(k, v);
+#     }
+# }
 
-function lo_otro(k, v)
-{
-    var prom = Array.sum(v)/v.length
-    return prom
-}
+# function lo_otro(k, v)
+# {
+#     var prom = Array.sum(v)/v.length
+#     return prom
+# }
 
-db.getCollection("students").mapReduce
-(
-    mapeame,
-    lo_otro,
-    {out:{merge:"prom"}}
-)
-'''
+# db.getCollection("students").mapReduce
+# (
+#     mapeame,
+#     lo_otro,
+#     {out:{merge:"prom"}}
+# )

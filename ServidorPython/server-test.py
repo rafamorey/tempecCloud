@@ -1,13 +1,13 @@
 #PROGRAMA DE PRUEBA PARA FILTRAR Y ALMACENAR DATOS
 
 # librerias & cositas
-from datetime import datetime
-from pymongo import MongoClient
-import paho.mqtt.client as mqtt
-import paho.mqtt.publish as publish
-import logging
-import time
-from concurrent.futures import ThreadPoolExecutor
+from datetime import datetime                         # ==> Para usar fechas
+from pymongo import MongoClient                       # ==> Para ser un cliente de mongodb
+import paho.mqtt.client as mqtt                       # ==> Para subscribirme (mqtt)
+import paho.mqtt.publish as publish                   # ==> Para publicar (mqtt)
+import logging                                        # ==> Para saber con que thread se finalizo una tarea
+import time                                           # ==> Para usar delays
+from concurrent.futures import ThreadPoolExecutor     # ==> Para usar un pool de threads
 
 # Saber si el dispositivo esta registrado
 def if_exist(msg_device_id):
@@ -128,6 +128,8 @@ def update_device(msg_payload):
                                              'devices.$.histeresis_high' : float(msg_payload.split('/')[5]), 
                                              'devices.$.histeresis_low': float(msg_payload.split('/')[6]) 
                                              }})
+    print('Se actualizo la informacion')
+    print("=======================================================================================================================================================")
 
 # funcion principal
 def main(msg_payload):   
@@ -137,7 +139,7 @@ def main(msg_payload):
         if msg_payload.split('/')[0] == '10':
             # --------------------------------------------------> es el primer msg
             if first_msg(msg_payload.split('/')[1]):
-                insertar_historial(1, msg_payload)
+                insertar_historial('1st', msg_payload)
             # --------------------------------------------------> no es el primer msg
             else:
                 insertar_historial(funcion_detectar_acknowlaged(msg_payload))
@@ -146,7 +148,7 @@ def main(msg_payload):
             update_device(msg_payload)
         # --------------------------------------------------------------> msg es de tipo ??
         else:
-            print('soy un ??')
+            print('soy un tipo de msg no registrado')
 
 # al conectarme al broker
 def on_connect(client, userdata, flags,rc):
@@ -173,16 +175,20 @@ def logo():
 
 logging.basicConfig(level=logging.DEBUG, format='%(threadName)s: %(message)s') #==> Esto es para poder saber con que thread se ejecuto una tarea
 mongo = MongoClient('127.0.0.1', 27017)                                        #==> Aqui se crea un cliente y se conecta localmente a mongodb
-db = mongo['Tempec']                                                           #==> Uso la database Tempec que esta en mongodb
-users = db['Users']                                                            #==> Uso la coleccion Users que esta en la database Tempec
-historial = db['Historial']                                                    #==> Uso la coleccion Historial que esta en la database Tempec
+gg = mongo['Tempec']                                                           #==> Uso la database Tempec que esta en mongogg
+users = gg['Users']                                                            #==> Uso la coleccion Users que esta en la database Tempec
+historial = gg['Historial']                                                    #==> Uso la coleccion Historial que esta en la database Tempec
 executor = ThreadPoolExecutor(max_workers=8)                                   #==> Determino la cantidad de treads que tendra mi thread'spool
 monzav = mqtt.Client()                                                         #==> Aqui creo un cliente mqtt
 monzav.on_connect = on_connect                                                 #==> Cuando el cliente mqtt se conecte ejecutara la funcion on_connect
 monzav.on_message = on_message                                                 #==> Cuando el cliente mqtt reciva un msg ejecutara la funcion on_message
-monzav.connect("test.mosquitto.org", 1883, 60)                                 #==> Se conecta al broker de mosquitto
+monzav.connect("test.mosquitto.org", 1883, 60)                                #==> Se conecta al broker de mosquitto
+#monzav.connect("6c665d3e9b974b849cffc4266267b47b.s2.eu.hivemq.cloud", 8883, 10)
 monzav.loop_forever()                                                          #==> Se inicia loop mqtt
 
 # ====>            tipos de msg             <====
+# Tipo/ID/TempInterior/TempExterior/Out0/Out1
 # 10/AAA002/16.7/29.0/0/0
-# 20/AAA001/Nombre/Location/16.0/0.5/0.5
+#
+# Tipo/ID/Nombre/Ubicacion/Setpoint/Hist+/Hist-
+# 20/AAA001/Freezer/Obregon Caudillo/16.0/0.5/0.5
