@@ -1,45 +1,35 @@
 #PROGRAMA DE PRUEBA PARA FILTRAR Y ALMACENAR DATOS
 
 # librerias & cositas
-from datetime import datetime                         # ==> Para usar fechas
-from pymongo import MongoClient                       # ==> Para ser un cliente de mongodb
-import paho.mqtt.client as mqtt                       # ==> Para subscribirme (mqtt)
-import paho.mqtt.publish as publish                   # ==> Para publicar (mqtt)
-import logging                                        # ==> Para saber con que thread se finalizo una tarea
-import time                                           # ==> Para usar delays
-from concurrent.futures import ThreadPoolExecutor     # ==> Para usar un pool de threads
+from datetime import datetime
+from turtle import goto                   
+from pymongo import MongoClient                 
+import paho.mqtt.client as mqtt                   
+import paho.mqtt.publish as publish              
+import logging                               
+import time                                      
+from concurrent.futures import ThreadPoolExecutor    
 
-# Saber si el dispositivo esta registrado
-def if_exist(msg_device_id):
-    if users.count_documents({'devices._id':msg_device_id}):
-        return True
-    else:
-        return False
 
-# Saber si es el primer MSG
-def first_msg(msg_device_id):
-    if historial.count_documents({'_id':msg_device_id}) <= 0:
-        return True
-    else:
-        return False
-
-# Insertar en Historial
 def insertar_historial(opcion, msg_payload):
-
+    print(opcion)
     if opcion != 'ack':
+        print("No es AKNOLW")
         # consulta para obetenr datos faltantes   
         consult = users.aggregate([{"$unwind": "$devices"},
-                                    {'$match': {"devices._id": {"$eq": msg_payload.split('/')[1]}}},
+                                    {'$match': {"devices.d_id": {"$eq": msg_payload.split('/')[1]}}},
                                     {"$project": {'nombre':"$devices.name","setpoint":"$devices.setpoint","hish":"$devices.histeresis_high","hisl":"$devices.histeresis_low"}}])
 
+        print("Pididendo los valores")
         # obteniendo valor de variables
         for x in consult:
             name = x['nombre']
             setp = x['setpoint']
             hish = x['hish']
             hisl = x['hisl']
-
-        _id_d = msg_payload.split('/')[1]
+        
+        print("Obtube los valores")
+        d_id = msg_payload.split('/')[1]
         _name = name
         _setpoint = setp
         _histeresis_high = hish
@@ -48,43 +38,46 @@ def insertar_historial(opcion, msg_payload):
         _out_1 = bool(int(msg_payload.split('/')[5]))
         _temperatura_interior = float(msg_payload.split('/')[2])
         _temperatura_exterior = float(msg_payload.split('/')[3])
-
+        print("Valores en variables")
         if opcion == '1st':
+            print("Entre a primer")
             _temperatura_maxima = float(msg_payload.split('/')[2])
             _date_maxima = datetime.now()
             _temperatura_minima = float(msg_payload.split('/')[2])
             _date_minima = datetime.now()
-
-        # No Primer Msg
+            print("Sali de a primer")
         elif opcion == 'noack':
-            for g in historial.find({'_id_h': _id_d},{'_id':0,'_temperatura_maxima':1, '_temperatura_minima':1, '_temperatura_exterior':1, '_temperatura_interior':1, '_date_maxima':1, '_date_minima':1}).sort('_date',-1).limit(1):
+            print("Entre a noak")
+            for g in historial.find({'d_id': d_id},{'_id':0,'_temperatura_maxima':1, '_temperatura_minima':1, '_temperatura_exterior':1, '_temperatura_interior':1, '_date_maxima':1, '_date_minima':1}).sort('_date',-1).limit(1):
                 #last_temperatura_interior = g['_temperatura_interior']
                 #last_temperatura_exterior = g['_temperatura_exterior']
                 last_temperatura_maxima = g['_temperatura_maxima']
                 last_date_maxima = g['_date_maxima']
                 last_temperatura_minima = g['_temperatura_minima']
                 last_date_minima = g['_date_minima']
+            
+            print("Sali de noak")
 
-                if float(msg_payload.split('/')[2]) > last_temperatura_maxima:  
-                    _temperatura_maxima = float(msg_payload.split('/')[2])
-                    _date_maxima = datetime.now()
-                    _temperatura_minima = last_temperatura_minima
-                    _date_minima = last_date_minima
+            if float(msg_payload.split('/')[2]) > last_temperatura_maxima:  
+                _temperatura_maxima = float(msg_payload.split('/')[2])
+                _date_maxima = datetime.now()
+                _temperatura_minima = last_temperatura_minima
+                _date_minima = last_date_minima
 
-                elif float(msg_payload.split('/')[2]) < last_temperatura_minima:
-                    _temperatura_minima = float(msg_payload.split('/')[2])
-                    _date_minima = datetime.now()
-                    _temperatura_maxima = last_temperatura_maxima
-                    _date_maxima = last_date_maxima
+            elif float(msg_payload.split('/')[2]) < last_temperatura_minima:
+                _temperatura_minima = float(msg_payload.split('/')[2])
+                _date_minima = datetime.now()
+                _temperatura_maxima = last_temperatura_maxima
+                _date_maxima = last_date_maxima
 
-                else:
-                    _temperatura_maxima = last_temperatura_maxima              
-                    _date_maxima = last_date_maxima
-                    _temperatura_minima = last_temperatura_minima
-                    _date_minima = last_date_minima
+            else:
+                _temperatura_maxima = last_temperatura_maxima              
+                _date_maxima = last_date_maxima
+                _temperatura_minima = last_temperatura_minima
+                _date_minima = last_date_minima
 
         dic = {
-            '_id_d': _id_d,
+            'd_id': d_id,
             '_name': _name,
             '_setpoint': _setpoint,
             '_temperatura_interior': _temperatura_interior,
@@ -104,13 +97,12 @@ def insertar_historial(opcion, msg_payload):
         print(dic)
         print("=======================================================================================================================================================")
 
-# Identificar acknowlaged
 def funcion_detectar_acknowlaged(msg_payload):
-    id_d = msg_payload.split('/')[1]
+    d_id = msg_payload.split('/')[1]
     temperatura_interior = msg_payload.split('/')[2]
     #temperatura_exterior = msg_payload.split('/')[3]
 
-    for g in historial.find({'_id_h': id_d},{'_id':0,'_temperatura_interior':1, '_temperatura_exterior':1}).sort('_date',-1).limit(1):
+    for g in historial.find({'d_id': d_id},{'_id':0,'_temperatura_interior':1, '_temperatura_exterior':1}).sort('_date',-1).limit(1):
         last_temperatura_interior = g['_temperatura_interior']
         #last_temperatura_exterior = g['_temperatura_exterior']
 
@@ -119,7 +111,6 @@ def funcion_detectar_acknowlaged(msg_payload):
     else:
         return 'noack', msg_payload
 
-# Actualizar datos del dispositivo
 def update_device(msg_payload):
     users.update_one({'devices._id': msg_payload.split('/')[1]},{'$set': {
                                             'devices.$.name' : msg_payload.split('/')[2],
@@ -133,22 +124,20 @@ def update_device(msg_payload):
 
 # funcion principal
 def main(msg_payload):   
-    # -------------------------------------------------------------------------> saber si existe el dispositivo
-    if if_exist(msg_payload.split('/')[1]):  
-        # --------------------------------------------------------------> msg es de tipo 10
+    print("Main()")
+    if users.count_documents({'users.devices.d_id':msg_payload.split('/')[1]}) > 0:            # ==> Saber si el dispositivo esta registrado
+        print("Si Existo")
         if msg_payload.split('/')[0] == '10':
-            # --------------------------------------------------> es el primer msg
-            if first_msg(msg_payload.split('/')[1]):
+            print("Tipo 10")
+            if historial.count_documents({'d_id':msg_payload.split('/')[1]}) <= 0:
+                print("Primer msg")
                 insertar_historial('1st', msg_payload)
-            # --------------------------------------------------> no es el primer msg
             else:
                 insertar_historial(funcion_detectar_acknowlaged(msg_payload))
-        # --------------------------------------------------------------> msg es de tipo 20
+                print("No primer msg")
         elif msg_payload.split('/')[0] == '20':
+            print("Tipo 20")
             update_device(msg_payload)
-        # --------------------------------------------------------------> msg es de tipo ??
-        else:
-            print('soy un tipo de msg no registrado')
 
 # al conectarme al broker
 def on_connect(client, userdata, flags,rc):
@@ -157,6 +146,7 @@ def on_connect(client, userdata, flags,rc):
 
 # al recivir un msg
 def on_message(client, userdata, msg):
+    print(msg.payload.decode())
     executor.submit(main, msg.payload.decode())
 
 # imprimir logo
@@ -174,10 +164,11 @@ def logo():
 
 
 logging.basicConfig(level=logging.DEBUG, format='%(threadName)s: %(message)s') #==> Esto es para poder saber con que thread se ejecuto una tarea
-mongo = MongoClient('127.0.0.1', 27017)                                        #==> Aqui se crea un cliente y se conecta localmente a mongodb
-gg = mongo['Tempec']                                                           #==> Uso la database Tempec que esta en mongogg
-users = gg['Users']                                                            #==> Uso la coleccion Users que esta en la database Tempec
-historial = gg['Historial']                                                    #==> Uso la coleccion Historial que esta en la database Tempec
+# mongo = MongoClient('127.0.0.1', 27017)                                        #==> Aqui se crea un cliente y se conecta localmente a mongodb
+mongo = MongoClient("mongodb+srv://monzav:mongodb057447@cluster0.qilrdwg.mongodb.net/?retryWrites=true&w=majority")
+db = mongo['Tempec_Cloud']                                                           #==> Uso la database Tempec que esta en mongogg
+users = db['Enterprises']                                                      #==> Uso la coleccion Users que esta en la database Tempec
+historial = db['Historial']                                                    #==> Uso la coleccion Historial que esta en la database Tempec
 executor = ThreadPoolExecutor(max_workers=8)                                   #==> Determino la cantidad de treads que tendra mi thread'spool
 monzav = mqtt.Client()                                                         #==> Aqui creo un cliente mqtt
 monzav.on_connect = on_connect                                                 #==> Cuando el cliente mqtt se conecte ejecutara la funcion on_connect
@@ -188,7 +179,7 @@ monzav.loop_forever()                                                          #
 
 # ====>            tipos de msg             <====
 # Tipo/ID/TempInterior/TempExterior/Out0/Out1
-# 10/AAA002/16.7/29.0/0/0
+# 10/AAAA/16.7/29.0/0/0
 #
 # Tipo/ID/Nombre/Ubicacion/Setpoint/Hist+/Hist-
 # 20/AAA001/Freezer/Obregon Caudillo/16.0/0.5/0.5

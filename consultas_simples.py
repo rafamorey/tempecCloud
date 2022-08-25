@@ -1,18 +1,29 @@
-from asyncio.windows_events import NULL
-from datetime import datetime
-from traceback import print_tb
 from pymongo import MongoClient
-
 
 client = MongoClient("mongodb+srv://monzav:mongodb057447@cluster0.qilrdwg.mongodb.net/?retryWrites=true&w=majority")
 # mongo = client.test
 
-# print(client.list_database_names())
 # sample_mflix = client['prueba_001']
 # comme = sample_mflix['sub_prueba_001']
 t = client['Tempec_Cloud']
 e = t['Enterprises']
 
+# for f in e.aggregate([{"$unwind": "$users"},
+#                             {'$match': {"devices.d_id": {"$eq": 'AAAA'}}},
+#                             {"$project": {'nombre':"$devices.name","setpoint":"$devices.setpoint","hish":"$devices.histeresis_high","hisl":"$devices.histeresis_low"}}]):
+#     print(f)
+for g in e.aggregate([{'$match': {'users.devices.d_id': {'$eq': 'AAAA'}}},
+                        {'$unwind': '$users'},
+                        {'$match' : {'users.devices.d_id': {'$eq': 'AAAA'}}},
+                        {'$unwind': '$users.devices'},
+                        {'$match' : {'users.devices.d_id': {'$eq': 'AAAA'}}},
+                        {'$project': {'_id':0, 'nombre': '$users.devices.d_name'}}
+                        ]):
+
+    print(g)
+    print("\n")
+
+# print(e.count_documents({'users.devices.d_id' : 'AAAA'}))
 # documento = {
 #     'e_id':'A0',
 #     'enterprise':"Jolie Industries",
@@ -67,67 +78,3 @@ e = t['Enterprises']
 #         }
 #     ]
 # }
-
-# documento = {
-#     'e_id':'AA',
-#     'name': 'Jessica Biel',
-#     'sub':[
-#         {
-#             'u_id':'AAA',
-#             'name': 'Gemma Arterton',
-#             'subsub':[]
-#         }
-#     ]
-# }
-
-# dic = {
-#     'e_id':'AA',
-#     'name': 'Eva Green',
-#     'users': [{
-#         'u_id': 'AAA',
-#         'u_name': 'Jesuca',
-#         'device':[{
-#             'd_id':'AAAA',
-#             'd_name': 'Biel',
-#         },
-#         {
-#             'd_id':'AAAB',
-#             'd_name':'Jolie'
-#         }
-#         ],
-#     }]
-# }
-# e.insert_one(dic)
-dic = {
-    'd_id':'a321',
-    'd_name': 'JesususXD'
-}
-
-# e.update_one({'users.u_id':'ZZZ'}, {'$push' : {'users.u_id.devices' : dic }})
-# e.update_one({'users.u_id': {'$all': ["ZZZ"]}},{'$push' : {'users' : dic }})
-
-for r in e.aggregate([{'$project':{'_id':0, 'index': {'$indexOfArray': ["$users.u_id", 'AAZ']}}}]):
-    print(r['index'])
-# query = e.aggregate([{'$unwind':'$users'},
-#                         {'$match': {"users.u_id": {"$eq": 'ZZZ'}}}])
-
-# for r in query:
-#     print(r)
-#     print("\n")
-
-
-
-# for x in e.find({
-#     '$and':[
-#         {'e_id':'AA'},
-#         {'users.u_id':'AAA'}
-#     ]}):
-#     print(x)
-
-# for x in e.find({}):
-#     print(x)
-# mongo = MongoClient('127.0.0.1', 27017)
-# db = mongo['Tempec']
-# users = db['Users']
-# historial = db['Historial']
-# pruebas = db['pruebas']

@@ -101,3 +101,7 @@ def inicio():
 
 while 1:
     inicio()
+
+# Enterprise    AB
+# User          AAG
+# Device        AAAG
