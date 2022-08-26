@@ -1,12 +1,19 @@
+#include "FS.h"
+#include "SD.h"
+#include <SPI.h>
 #include <Wire.h>
 #include <OneWire.h>
 #include <DallasTemperature.h>
 #include <EEPROM.h>
 #include <WiFi.h>
 #include <PubSubClient.h>
+#include <BluetoothSerial.h>
+
+BluetoothSerial SerialBT;
+File DATA;
+
 
 /*----------SENSOR DE TEMPERATURA----------*/
-/*-----------------------------------------*/
 /*ESPACIOS DE EEPROM
  * 100 = SETPOINT;
  * 110 = HISTERISIS;
@@ -16,10 +23,11 @@
 #define ONE_WIRE_BUS 5
 #define OUT_COOL 32
 #define OUT_HEAT 33
-#define EEPROM_SETPOINT 100
-#define EEPROM_HISTERISIS 110
-#define EEPROM_INTERVALO 120
-#define EEPROM_UNIDAD 130
+#define EEPROM_SETPOINT 205
+#define EEPROM_HISTENEG 215
+#define EEPROM_HISTEPOS 225
+#define EEPROM_ILECTURA 235
+#define EEPROM_METRICA 245
 /*
  * RESISTENCIA PULL-UP  DISTANCIA DEL CABLE (METROS)
  *          4,7 kΩ            De 0 m a 5 m
@@ -33,21 +41,26 @@
 
 /*----------WIFI Y BLUETOOTH----------*/
 /*POSIBLE LOGICA DE FUNCIONAMIENTO PARA EL GUARDADO DE LOS DATOS DEL WIFI EN LA EEPROM
- * CREO (FALTA UN POCO DE INVESTIGACION), EN LA MEMORIA EEPROM NO PUEDES GUARDAR STRINGS. DEBO GURADAR
+ * CREO (FALTA UN POCO DE INVESTIGACION), EN LA MEMORIA EEPROM NO PUEDES GUARDAR STRINGS. DEBO GUARDAR
  * LOS DATOS DEL WIFI DE MODO QUE SEPARE LA CADENA EN CARACTERES ADEMAS DE GUARDAR EL LARGO QUE TENIAN PARA
  * QUE AL MOMENTO DE RECUPERARLA SABER CUANTOS ESPACIOS DEBO DE LEER.
 */
 /*ESPACIOS DE EEPROM
- * 10 = SSID
- * 20 = CONTRASEÑA
- * 30 = LARGO SSID
- * 40 = LARGO CONTRASEÑA
+ * 5 = SSID
+ * 50 = CONTRASEÑA
+ * 90 = LARGO SSID
+ * 95 = LARGO CONTRASEÑA
 */
 #define MSG_BUFFER_SIZE 50
 #define LED_WIFI 25
 #define LED_BLUE 26
+#define TOPIC "Tempec/Server"
 #define EEPROM_SSID_LARGE 30
 #define EEPROM_PASS_LARGE 40
+#define EEPROM_WIFIACTIVO ??
+#define EEPROM_NOMBRE_RED ??
+#define EEPROM_CONTRASEÑA ??
+
 /*------------------------*/
 
 
@@ -96,15 +109,30 @@ int unidad = 0;
 
 
 
+/*MICRO SD*/
+#define PinSD 4
+/*--------*/
+
+/*RADIO FRECUENCIA*/
+#define farmRed 2022
+#define RX2 16
+#define TX2 17
+/*----------------*/
+
+
 /*----------VARIABLES PARA WIFI----------*/
-const char* ssid = "404";//???????????????
-const char* password = "404";//?????????????
-const char* mqtt_server = "";
+/*char* ssid = "404";//???????????????
+char* password = "404";//?????????????*/
+const char* ssid = "INFINITUM3F41_2.4";
+const char* password = "xd7TS6tsHJ";
+const char* mqtt_server = "test.mosquitto.org"/*"9bd78e371b064745883b9e4ede7be333.s2.eu.hivemq.cloud"//*/;
 WiFiClient espClient;
 PubSubClient client(espClient);
 unsigned long lastMsg = 0;
 char msg[MSG_BUFFER_SIZE];
 int value;
+boolean WIFI = false;
+String MENSAJE = "";
 /*---------------------------------------*/
 
 /*----------VARIABLES DS18B20----------*/
@@ -113,11 +141,23 @@ float temperaturaIn = 0;
 float lastemperaturaIn = 0;
 float temperaturaEx = 0;
 float Histerisis = 1;
+float HisN = 1;
 unsigned long lecturaMillis = 0;
 unsigned long intervalo = 3000;/*INTERVALO DE LECTURA*/
 OneWire oneWire(ONE_WIRE_BUS);
 DallasTemperature sensor(&oneWire);
 /*-------------------------------------*/
+
+/*VARIABLES PARA MEMORIA SD*/
+uint16_t sumac = 0;
+/*-------------------------*/
+
+/*VARIABLES DE BLUETOOTH SERIAL*/
+/*String nameBlue = "NOMBRE";//Nombre modificable, talvez por el usuario o se podria dejar un nombre predeterminado
+byte Mensaje[200];//*/
+/*-----------------------------*/
+
+
 
 /*----------SEGUNDO NUCLEO----------*/
 TaskHandle_t Task1;
@@ -216,13 +256,13 @@ void reconnect()
 {
   while (!client.connected())
   {
-    String clientId = "ESP32Client";/*EL NOMBRE PUEDE CAMBIAR*/
-    clientId += String(random(0xffff), HEX);
+    String clientId = "AAAA";/*EL NOMBRE PUEDE CAMBIAR*/
+    //clientId += String(random(0xffff), HEX);
     if(client.connect(clientId.c_str()))
     {
       Serial.println("connected");
-      //client.publish("outTopic", "hello world");/*Publica para saber que esta conectado*/
-      client.subscribe("outTopic");/*el topic de publicacion puede ser diferente al de subscripcion*/ 
+     // client.publish(Topic, "hello world");/*Publica para saber que esta conectado*/
+      //client.subscribe("outTopic");/*el topic de publicacion puede ser diferente al de subscripcion*/ 
     }
     else
     {
@@ -236,14 +276,48 @@ void reconnect()
 }
 
 
+void writeFile(fs::FS &fs, const char * path, const char * message){
+    //Serial.printf("Writing file: %s\n", path);
+    File file = fs.open(path, FILE_WRITE);
+    if(!file){
+        //Serial.println("Failed to open file for writing");
+        return;
+    }
+    if(file.print(message)){
+        //Serial.println("File written");
+    } else {
+        //Serial.println("Write failed");
+    }
+    file.close();
+}
+
+void appendFile(fs::FS &fs, const char * path, const char * message){
+    //Serial.printf("Appending to file: %s\n", path);
+
+    File file = fs.open(path, FILE_APPEND);
+    if(!file){
+        //Serial.println("Failed to open file for appending");
+        /*Agregar un indicador que el mensaje no se escribio en la SD*/
+        return;
+    }
+    if(file.print(message)){
+        //Serial.println("Message appended");
+    } else {
+        //Serial.println("Append failed");
+    }
+    file.close();
+}
+
+
 
 void setup()
 {
   EEPROM.begin(512);
   Serial.begin(9600);
-  //setup_wifi();
-  //client.setServer(mqtt_server, 1883);
-  //client.setCallback(callback);
+  Serial2.begin(9600,SERIAL_8N1,RX2,TX2);
+  setup_wifi();
+  client.setServer(mqtt_server, 1883);
+  client.setCallback(callback);
   sensor.begin();
   
   pinMode(DATO,OUTPUT);
@@ -266,47 +340,29 @@ void setup()
 
 void loop()
 {
-  if(millis() - lecturaMillis >= intervalo)
+  if (!client.connected())
   {
-    sensor.requestTemperatures();
-    temperaturaIn = sensor.getTempCByIndex(0);
-    Serial.print("TEMPERATURA: ");
-    Serial.println(temperaturaIn);
-    //temperaturaEx = sensor.getTempCByIndex(1);
-    //if(temperaturaIn != lastemperaturaIn)
-    //{
-     /* Decodificacion(temperaturaIn);
-      lastemperaturaIn = temperaturaIn;*/
-   // }
-    lecturaMillis = millis();
+    reconnect();
+  }
+  client.loop();
+  temperatura();
+  
+  unsigned long now = millis();
+  if(now - lastMsg > 60000)
+  {
+    lastMsg = now;
+    /*USAR COMO EJEMPLO PARA LA PUBLICACION DE UN FLOTANTE
+    char tempString[8];
+    dtostrf(temperature, 1, 2, tempString);
+    Serial.print("Temperature: ");
+    Serial.println(tempString);
+    mqtt.publish(topicTemperature, tempString);//*/
+    //TIPO/ID/TEMPERATURA INTERIOR/TEMPERATURA EXTERIOR/OUT0/OUT1
+    char MSN[50];
+    strcpy(MSN,MENSAJE.c_str());
+    client.publish(TOPIC,MSN);
+    
+    
   }
   
-  if(temperaturaIn >= (SetPoint+Histerisis))
-  {
-    digitalWrite(OUT_COOL,HIGH);
-    digitalWrite(OUT_HEAT,LOW);
-    COOLING = true;
-    HEATING = false;
-  }
-  else if(temperaturaIn <= SetPoint && COOLING == true)
-  {
-    digitalWrite(OUT_COOL,LOW);
-    digitalWrite(OUT_HEAT,LOW);
-    COOLING = false;
-    HEATING = false;
-  }
-  else if(temperaturaIn <= (SetPoint-Histerisis))
-  {
-    digitalWrite(OUT_COOL,LOW);
-    digitalWrite(OUT_HEAT,HIGH);
-    COOLING = false;
-    HEATING = true;
-  }
-  else if(temperaturaIn >= SetPoint && HEATING == true)
-  {
-    digitalWrite(OUT_COOL,LOW);
-    digitalWrite(OUT_HEAT,LOW);
-    COOLING = false;
-    HEATING = false;
-  }
 }
