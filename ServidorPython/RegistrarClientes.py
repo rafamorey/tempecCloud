@@ -57,7 +57,8 @@ def registrar_dispositivo(e_id, u_id):
         'histeresis_low': float(input("histeresis_low: ")),
         'last_update': datetime.now()
     }
-    for r in enterprise.aggregate([{'$project':{'_id':0, 'index': {'$indexOfArray': ["$users.u_id", u_id]}}}]):
+    for r in enterprise.aggregate([{'$match': {'users.u_id': u_id}},
+                                    {'$project':{'_id':0, 'index': {'$indexOfArray': ["$users.u_id", u_id]}}}]):
         ind = r['index']
     enterprise.update_one({'e_id': e_id }, {'$push' : {f'users.{ind}.devices' : dic }})
     print("Done!\n\n")

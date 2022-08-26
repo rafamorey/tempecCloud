@@ -7,23 +7,16 @@ client = MongoClient("mongodb+srv://monzav:mongodb057447@cluster0.qilrdwg.mongod
 # comme = sample_mflix['sub_prueba_001']
 t = client['Tempec_Cloud']
 e = t['Enterprises']
+h = t['Historial']
 
-# for f in e.aggregate([{"$unwind": "$users"},
-#                             {'$match': {"devices.d_id": {"$eq": 'AAAA'}}},
-#                             {"$project": {'nombre':"$devices.name","setpoint":"$devices.setpoint","hish":"$devices.histeresis_high","hisl":"$devices.histeresis_low"}}]):
-#     print(f)
-for g in e.aggregate([{'$match': {'users.devices.d_id': {'$eq': 'AAAA'}}},
-                        {'$unwind': '$users'},
-                        {'$match' : {'users.devices.d_id': {'$eq': 'AAAA'}}},
-                        {'$unwind': '$users.devices'},
-                        {'$match' : {'users.devices.d_id': {'$eq': 'AAAA'}}},
-                        {'$project': {'_id':0, 'nombre': '$users.devices.d_name'}}
-                        ]):
-
-    print(g)
-    print("\n")
-
-# print(e.count_documents({'users.devices.d_id' : 'AAAA'}))
+# h.delete_many({'d_id': {'$eq':'AAAA'}})
+e.update_one({'users.devices.d_id': 'AAAA'},{'$set': {
+                                            f'users.0.devices.0.d_name' : 'GoKHAN',
+                                        #  f'users.{u}.devices.{d}.location' : 'USA CALIFORNIA SACRAMENTO Las Cerdas',
+                                            f'users.0.devices.0.setpoint' : 12.12,
+                                            f'users.0.devices.0.histeresis_high' : 0.12, 
+                                            f'users.0.devices.0.histeresis_low': 0.14}
+                                            })
 # documento = {
 #     'e_id':'A0',
 #     'enterprise':"Jolie Industries",
