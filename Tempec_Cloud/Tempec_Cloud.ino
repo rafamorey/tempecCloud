@@ -23,6 +23,8 @@ File DATA;
 #define ONE_WIRE_BUS 5
 #define OUT_COOL 32
 #define OUT_HEAT 33
+#define SENSOR0 0
+#define SENSOR1 1
 #define EEPROM_SETPOINT 205
 #define EEPROM_HISTENEG 215
 #define EEPROM_HISTEPOS 225
@@ -143,7 +145,7 @@ float temperaturaEx = 0;
 float Histerisis = 1;
 float HisN = 1;
 unsigned long lecturaMillis = 0;
-unsigned long intervalo = 3000;/*INTERVALO DE LECTURA*/
+unsigned long intervalo = 500;/*INTERVALO DE LECTURA*/
 OneWire oneWire(ONE_WIRE_BUS);
 DallasTemperature sensor(&oneWire);
 /*-------------------------------------*/
@@ -348,7 +350,7 @@ void loop()
   temperatura();
   
   unsigned long now = millis();
-  if(now - lastMsg > 60000)
+  if(now - lastMsg > 1000)
   {
     lastMsg = now;
     /*USAR COMO EJEMPLO PARA LA PUBLICACION DE UN FLOTANTE

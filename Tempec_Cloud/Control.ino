@@ -51,7 +51,7 @@ void crear()
 {
   //TIPO/ID/TEMPERATURA INTERIOR/TEMPERATURA EXTERIOR/OUT0/OUT1
   MENSAJE = "10/";
-  MENSAJE += "AAAB/";
+  MENSAJE += "AAAA/";
   MENSAJE += temperaturaIn;
   MENSAJE += "/25.00/";
   MENSAJE += "1/";
