@@ -55,7 +55,8 @@ def registrar_dispositivo(e_id, u_id):
         'setpoint': float(input("setpoint: ")),
         'histeresis_high': float(input("histeresis_high: ")),
         'histeresis_low': float(input("histeresis_low: ")),
-        'last_update': datetime.now()
+        'last_update': datetime.now(),
+        'online': False
     }
     for r in enterprise.aggregate([{'$match': {'users.u_id': u_id}},
                                     {'$project':{'_id':0, 'index': {'$indexOfArray': ["$users.u_id", u_id]}}}]):
