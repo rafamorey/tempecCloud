@@ -8,5 +8,6 @@ client = MongoClient("mongodb+srv://monzav:mongodb057447@cluster0.qilrdwg.mongod
 t = client['Tempec_Cloud']
 e = t['Enterprises']
 h = t['Historial']
+d = t['devices_id']
 
-e.delete_many({'enterprise': 'AA'})
+d.delete_many({'_id': {'$ne': 'AA'}})

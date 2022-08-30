@@ -1,7 +1,8 @@
 #PROGRAMA DE PRUEBA PARA FILTRAR Y ALMACENAR DATOS
 
 # librerias & cositas
-from datetime import datetime                
+from datetime import datetime
+from typing import final                
 from pymongo import MongoClient                 
 import paho.mqtt.client as mqtt                   
 import paho.mqtt.publish as publish              
@@ -167,7 +168,6 @@ def logo():
     print("                     =================================================================================================================================================")
 
 
-
 # logging.basicConfig(level=logging.DEBUG, format='%(threadName)s: %(message)s')
 # mongo = MongoClient('127.0.0.1', 27017)      
 
@@ -188,11 +188,11 @@ try:
     print("Iniciando MQTT...")
     monzav = mqtt.Client()  
     monzav.connect("test.mosquitto.org", 1883, 60) 
-    print("MQTT iniciado")
+    print("MQTT Iniciando")
     time.sleep(1)
     monzav.on_connect = on_connect                                     
     monzav.on_message = on_message                                                 
     #monzav.connect("6c665d3e9b974b849cffc4266267b47b.s2.eu.hivemq.cloud", 8883, 10)
     monzav.loop_forever()    
 except:
-    print("No se pudo establecer conexion con Mosquitto")                                             
+    print("No se pudo establecer conexion con Mosquitto")                                   

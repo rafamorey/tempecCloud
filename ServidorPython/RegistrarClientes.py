@@ -8,6 +8,7 @@ from pymongo import MongoClient
 mongo = MongoClient("mongodb+srv://monzav:mongodb057447@cluster0.qilrdwg.mongodb.net/?retryWrites=true&w=majority")
 db = mongo['Tempec_Cloud']
 enterprise = db['Enterprises']
+devices = db['devices_id']
 
 def registrar_empresa():
     print("================ DATOS DE LA EMPRESA ====================")
@@ -48,8 +49,9 @@ def comprobar_empresa(o):
         print("No se encontro ninguna empresa con ese id")
 
 def registrar_dispositivo(e_id, u_id):
+    ddd = input("d_id: ")
     dic = {
-        'd_id': input("d_id: "),
+        'd_id': ddd,
         'd_name': input("d_name: "),
         'location': input("location: "),
         'setpoint': float(input("setpoint: ")),
@@ -62,6 +64,8 @@ def registrar_dispositivo(e_id, u_id):
                                     {'$project':{'_id':0, 'index': {'$indexOfArray': ["$users.u_id", u_id]}}}]):
         ind = r['index']
     enterprise.update_one({'e_id': e_id }, {'$push' : {f'users.{ind}.devices' : dic }})
+
+    devices.insert_one({'dev_id': ddd})
     print("Done!\n\n")
 
 def registrar_usuario(id):
