@@ -4,7 +4,7 @@ const app = express()
 const bodyParser = require('body-parser')
 const db = require('./db')
 const router = require('./network/routes')
-const secret = require('./secret')
+const secret = require('./secret.js')
 
 // 'mongodb+srv://rafaelDiinpec:Mr1788910@tc.kshjevt.mongodb.net/?retryWrites=true&w=majority'
 db(secret)
