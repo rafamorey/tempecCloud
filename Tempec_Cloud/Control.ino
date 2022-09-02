@@ -2,8 +2,8 @@ void temperatura()
 {
     if(millis() - lecturaMillis >= intervalo)
   {
-    sensor.requestTemperatures();
-    temperaturaIn = sensor.getTempCByIndex(0);
+    SENSOR_IN.requestTemperatures();
+    temperaturaIn = SENSOR_IN.getTempCByIndex(0);
     Serial.print("TEMPERATURA: ");
     Serial.println(temperaturaIn);
     //temperaturaEx = sensor.getTempCByIndex(1);
@@ -49,11 +49,29 @@ void temperatura()
 
 void crear()
 {
+  //SENSOR_OUT.requestTemperatures();
+  //temperaturaOut = SENSOR_OUT.getTempCByIndex(0);
   //TIPO/ID/TEMPERATURA INTERIOR/TEMPERATURA EXTERIOR/OUT0/OUT1
   MENSAJE = "10/";
-  MENSAJE += "AAAA/";
+  MENSAJE += ID;
+  MENSAJE += "/";
   MENSAJE += temperaturaIn;
-  MENSAJE += "/25.00/";
-  MENSAJE += "1/";
+  MENSAJE += "/";
+  MENSAJE += temperaturaOut;
+  MENSAJE += "/1/";
   MENSAJE += "0";
+}
+
+void crearveinte()
+{
+  VEINTE = "20/";
+  VEINTE += ID;
+  VEINTE += "/";
+  VEINTE += "NOMBRE";/*NOMBRE QUE TENDRA EL DISPOSITIVO*/
+  VEINTE += "/";
+  VEINTE += SetPoint;
+  VEINTE += "/";
+  VEINTE += Histerisis;
+  VEINTE += "/";
+  VEINTE += HisN;
 }

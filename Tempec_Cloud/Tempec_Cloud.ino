@@ -9,18 +9,23 @@
 #include <PubSubClient.h>
 #include <BluetoothSerial.h>
 
-BluetoothSerial SerialBT;
+BluetoothSerial BLUET;
 File DATA;
 
+/* SI monitoreo SE ACTIVA IMPRIMIRA DATOS DE CONFIGURACION DE WIFI Y TEMPERATURA GUARDADOS EN LA EEPROM*/
+//#define monitoreo
 
 /*----------SENSOR DE TEMPERATURA----------*/
 /*ESPACIOS DE EEPROM
- * 100 = SETPOINT;
- * 110 = HISTERISIS;
- * 120 = INTERVALO DE LECTURA;
- * 130 = UNIDAD
+ * 205 = SETPOINT;
+ * 215 = HISTERISIS;
+ * 225 = HISTERISIS NEGATIVA;
+ * 235 = INTERVALO DE LECTURA;
+ * 245 = UNIDAD
+ * 
 */
 #define ONE_WIRE_BUS 5
+#define TWO_WIRE_BUS 22/*REVISAR PCB PARA DEFINIRLO*/
 #define OUT_COOL 32
 #define OUT_HEAT 33
 #define SENSOR0 0
@@ -30,6 +35,7 @@ File DATA;
 #define EEPROM_HISTEPOS 225
 #define EEPROM_ILECTURA 235
 #define EEPROM_METRICA 245
+
 /*
  * RESISTENCIA PULL-UP  DISTANCIA DEL CABLE (METROS)
  *          4,7 kΩ            De 0 m a 5 m
@@ -52,16 +58,18 @@ File DATA;
  * 50 = CONTRASEÑA
  * 90 = LARGO SSID
  * 95 = LARGO CONTRASEÑA
+ * 100 = WIFI ACTIVO
 */
 #define MSG_BUFFER_SIZE 50
 #define LED_WIFI 25
 #define LED_BLUE 26
 #define TOPIC "Tempec/Server"
-#define EEPROM_SSID_LARGE 30
-#define EEPROM_PASS_LARGE 40
-#define EEPROM_WIFIACTIVO ??
-#define EEPROM_NOMBRE_RED ??
-#define EEPROM_CONTRASEÑA ??
+#define TOPSUB "Tempec/Devices"
+#define EEPROM_SSID_LARGE 90
+#define EEPROM_PASS_LARGE 95
+#define EEPROM_WIFIACTIVO 100
+#define EEPROM_NOMBRE_RED 5
+#define EEPROM_PASSWORD 50
 
 /*------------------------*/
 
@@ -69,8 +77,8 @@ File DATA;
 
 /*----------DISPALAY SIETE SEGMENTOS Y CUATRO DIGITOS----------*/
 #define DATO 15  // Pin conectado a DS pin 14 de 74HC595
-#define CLOCK 4// Pin conectado a SHCP pin 11 de 74HC595
-#define LATCH 2// Pin conectado a STCP pin 12 de 74HC595
+#define CLOCK 2// Pin conectado a SHCP pin 11 de 74HC595
+#define LATCH 27// Pin conectado a STCP pin 12 de 74HC595
 #define CERO B00111111
 #define UNO B00000110
 #define DOS B01011011
@@ -130,24 +138,36 @@ const char* password = "xd7TS6tsHJ";
 const char* mqtt_server = "test.mosquitto.org"/*"9bd78e371b064745883b9e4ede7be333.s2.eu.hivemq.cloud"//*/;
 WiFiClient espClient;
 PubSubClient client(espClient);
-unsigned long lastMsg = 0;
-char msg[MSG_BUFFER_SIZE];
+unsigned long lastMsg = 0;//
+char msg[MSG_BUFFER_SIZE];//
+char msgIn[MSG_BUFFER_SIZE];//
 int value;
-boolean WIFI = false;
-String MENSAJE = "";
+boolean WIFI = false;//indicador que debera cambiar de estado si el wifi esta disponible o no
+String MENSAJE = "";//usada para formar el mensaje de topico 10
+String ID = "AAAB";//id consta de cuatro caracteres alfabeticos
+String MAJIN = "";//usada para formar el mensaje entrante
+String UBICACION = "";//usada para manejar la ubicacion
+String VEINTE = "";//usada para formar el mensaje de topico 20
+int inicio = 0;//variable usada para separar las secciones de un mensaje entrante por wifi
+int inicioAnt = 0;//variable usada para separar las secciones de un mensaje entrante por wifi
+String DATOS[20];//array donde se guardan temporalmente las variables extraidas de los mensajes entrantes hasta que se acomodan en su respectivo lugar
+char EXTRACCION[20];//variable para la extraccion de datos tipo string de memoria eeprom
+boolean extraon = true;//variable para no tener un for en el setup y extraer de la eeprom solo una vez en el loop
 /*---------------------------------------*/
 
 /*----------VARIABLES DS18B20----------*/
 float SetPoint = 26;
 float temperaturaIn = 0;
 float lastemperaturaIn = 0;
-float temperaturaEx = 0;
+float temperaturaOut = 0;
 float Histerisis = 1;
 float HisN = 1;
 unsigned long lecturaMillis = 0;
-unsigned long intervalo = 500;/*INTERVALO DE LECTURA*/
-OneWire oneWire(ONE_WIRE_BUS);
-DallasTemperature sensor(&oneWire);
+unsigned long intervalo = 3000;/*INTERVALO DE LECTURA*/
+OneWire oneWire_in(ONE_WIRE_BUS);
+//OneWire oneWire_out(TWO_WIRE_BUS);
+DallasTemperature SENSOR_IN(&oneWire_in);
+//DallasTemperature SENSOR_OUT(&oneWire_out);
 /*-------------------------------------*/
 
 /*VARIABLES PARA MEMORIA SD*/
@@ -157,6 +177,7 @@ uint16_t sumac = 0;
 /*VARIABLES DE BLUETOOTH SERIAL*/
 /*String nameBlue = "NOMBRE";//Nombre modificable, talvez por el usuario o se podria dejar un nombre predeterminado
 byte Mensaje[200];//*/
+String NAME = "";
 /*-----------------------------*/
 
 
@@ -250,7 +271,46 @@ void callback(char* topic,byte* payload, unsigned int length)
   {
     //Aqui poner codigo para el procesamiento de la informacion entrante
     //Normalmente es asi como se presenta para imprimirla en el puerto serial:
-    //Serial.print((char)payload[i]);
+    //20--TIPO/ID/NOMBRE/SETPOINT/HISTERISIS POSITIVA/HISTERISIS NEGATIVA
+    //----02/AAAA/
+    //10--TIPO/ID/TEMPERATURA INTERIOR/TEMPERATURA EXTERIOR/OUT0/OUT1
+    MAJIN += (char)payload[i];
+    //Serial.print(MAJIN);
+    //Serial.println("");
+    //Serial.println("ULTIMA");
+  }
+  int corto = 0;
+  String comp = "";
+  corto = MAJIN.substring(0,2).toInt();
+  comp = MAJIN.substring(3,7);
+  inicio = 8;
+  if(comp = ID)
+  {
+    switch (corto)
+    {
+      case 10:
+      /*NO DERBERIAS HABER ECIBIDO ESTE MENSAJE*/
+      break;
+      case 20:
+      for(int x = 0; x <= 4; x++)
+      {
+        inicioAnt = MAJIN.indexOf('/',inicio);
+        DATOS[x] = MAJIN.substring(inicio,inicioAnt);
+        inicio = inicioAnt;
+        inicio += 1;
+        //Serial.println(DATOS[x]);
+      }
+      SetPoint = DATOS[1].toFloat();
+      Histerisis = DATOS[2].toFloat();
+      HisN = DATOS[3].toFloat();
+      MAJIN = "";
+      EEPROM.put(EEPROM_SETPOINT, SetPoint);
+      EEPROM.put(EEPROM_HISTENEG, HisN);
+      EEPROM.put(EEPROM_HISTEPOS, Histerisis);
+      EEPROM.commit();
+      break;
+      default:
+      break;}
   }
 }
 
@@ -264,7 +324,7 @@ void reconnect()
     {
       Serial.println("connected");
      // client.publish(Topic, "hello world");/*Publica para saber que esta conectado*/
-      //client.subscribe("outTopic");/*el topic de publicacion puede ser diferente al de subscripcion*/ 
+      client.subscribe(TOPSUB);/*el topic de publicacion puede ser diferente al de subscripcion*/ 
     }
     else
     {
@@ -320,7 +380,8 @@ void setup()
   setup_wifi();
   client.setServer(mqtt_server, 1883);
   client.setCallback(callback);
-  sensor.begin();
+  SENSOR_IN.begin();
+  //SENSOR_OUT.begin();
   
   pinMode(DATO,OUTPUT);
   pinMode(CLOCK,OUTPUT);
@@ -342,6 +403,10 @@ void setup()
 
 void loop()
 {
+  if(extraon)
+  {
+    extraccion_de_EEPROM();
+  }
   if (!client.connected())
   {
     reconnect();
@@ -350,7 +415,7 @@ void loop()
   temperatura();
   
   unsigned long now = millis();
-  if(now - lastMsg > 1000)
+  if(now - lastMsg > 300000)
   {
     lastMsg = now;
     /*USAR COMO EJEMPLO PARA LA PUBLICACION DE UN FLOTANTE
@@ -360,11 +425,57 @@ void loop()
     Serial.println(tempString);
     mqtt.publish(topicTemperature, tempString);//*/
     //TIPO/ID/TEMPERATURA INTERIOR/TEMPERATURA EXTERIOR/OUT0/OUT1
-    char MSN[50];
-    strcpy(MSN,MENSAJE.c_str());
-    client.publish(TOPIC,MSN);
+    strcpy(msg,MENSAJE.c_str());
+    client.publish(TOPIC,msg);
     
     
   }
   
+}
+
+void extraccion_de_EEPROM()
+{
+   int lengthssid = 0;
+   int lengthpass = 0;
+
+   EEPROM.get(EEPROM_SSID_LARGE, lengthssid);
+   EEPROM.get(EEPROM_PASS_LARGE, lengthpass);
+   EEPROM.get(EEPROM_SETPOINT, SetPoint);
+   EEPROM.get(EEPROM_HISTENEG, HisN);
+   EEPROM.get(EEPROM_HISTEPOS, Histerisis);
+   EEPROM.get(EEPROM_WIFIACTIVO, WIFI);
+   /*EEPROM.get(EEPROM_ILECTURA,);
+   EEPROM.get(EEPROM_METRICA,);//*/
+   EEPROM.commit();
+   char arrayssid[lengthssid];
+   char arraypass[lengthpass];
+   ssid = "";
+   password = "";
+   for(int a = 0; a < lengthssid; a++)
+   {
+    EEPROM.get((EEPROM_NOMBRE_RED + a),arrayssid[a]);
+    EEPROM.commit();
+    ssid += arrayssid[a];
+   }
+   for(int b = 0; b < lengthpass; b++)
+   {
+    EEPROM.get((EEPROM_PASSWORD + b),arraypass[b]);
+    EEPROM.commit();
+    password += arraypass[b];
+   }
+   #ifdef monitoreo
+   Serial.print("NOMBRE DE RED WIFI: ");
+   Serial.println(ssid);
+   Serial.print("CONTRASEÑA: ");
+   Serial.println(password);
+   Serial.print("SETPOINT: ");
+   Serial.println(SetPoint);
+   Serial.print("HISTERISIS POSITIVA: ");
+   Serial.println(Histerisis);
+   Serial.print("HISTERISIS NEGATIVA: ");
+   Serial.println(HisN);
+   Serial.print(WIFI ? "WIFI ACTIVO" : "WIFI INACTIVO");
+   #endif
+  setup_wifi();
+  extraon = false;
 }

@@ -1,7 +1,7 @@
 void enviarDatosSD()
 {
-  readFile(SD, "/SILOS.txt");
-  deleteFile(SD, "/SILOS.txt");
+  readFile(SD, "/TEMPERATURAS.txt");
+  deleteFile(SD, "/TEMPERATURAS.txt");
 }
 
 void readFile(fs::FS &fs, const char * path){
