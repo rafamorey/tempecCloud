@@ -35,8 +35,8 @@
      * red = NOMBRE DE LA RED WIFI;
      * pas = CONTRASEÑA DE LA RED WIFI
      * poi = SET POINT
-     * pos = HISTERISIS POSITIVA
-     * neg = HISTERISIS NEGATIVA
+     * pos = Histeresis POSITIVA
+     * neg = Histeresis NEGATIVA
      * nom = NOMBRE DEL BLUETOOTH
      * sit = SITIO
     */
@@ -74,7 +74,7 @@
       {
         pos += char(Mensaje[w]);
       }
-      Histerisis = pos.toFloat();
+      Histeresis = pos.toFloat();
       prime += Mensaje[prime];
       break;
       case 4:

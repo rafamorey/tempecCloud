@@ -15,7 +15,7 @@ void temperatura()
     lecturaMillis = millis();
   }
   
-  if(temperaturaIn >= (SetPoint+Histerisis))
+  if(temperaturaIn >= (SetPoint+Histeresis))
   {
     digitalWrite(OUT_COOL,HIGH);
     digitalWrite(OUT_HEAT,LOW);
@@ -29,7 +29,7 @@ void temperatura()
     COOLING = false;
     HEATING = false;
   }
-  else if(temperaturaIn <= (SetPoint-Histerisis))
+  else if(temperaturaIn <= (SetPoint-Histeresis))
   {
     digitalWrite(OUT_COOL,LOW);
     digitalWrite(OUT_HEAT,HIGH);
@@ -67,11 +67,14 @@ void crearveinte()
   VEINTE = "20/";
   VEINTE += ID;
   VEINTE += "/";
-  VEINTE += "NOMBRE";/*NOMBRE QUE TENDRA EL DISPOSITIVO*/
+  VEINTE += "OVERLORD";/*NOMBRE QUE TENDRA EL DISPOSITIVO*/
   VEINTE += "/";
   VEINTE += SetPoint;
   VEINTE += "/";
-  VEINTE += Histerisis;
+  VEINTE += Histeresis;
   VEINTE += "/";
   VEINTE += HisN;
+  strcpy(msgIn,VEINTE.c_str());
+  client.publish(TOPIC,msgIn);
+  twenty = false;
 }

@@ -7,19 +7,34 @@
 #include <EEPROM.h>
 #include <WiFi.h>
 #include <PubSubClient.h>
-#include <BluetoothSerial.h>
+#include <WebServer.h>
 
-BluetoothSerial BLUET;
+
+static const char *SSID = "TEMPEC";
+static const char *PASSWORD = "DIINPEC123";
+
+
+WebServer server(80);
 File DATA;
 
+/*VARIABLES A ELIMINAR*/
+String red_wifi = "";
+String contrasena = "";//*/
+String setpoint = "";
+String histeresis_h = "";
+String histeresis_l = "";
+/*--------------------*/
+
+
+
 /* SI monitoreo SE ACTIVA IMPRIMIRA DATOS DE CONFIGURACION DE WIFI Y TEMPERATURA GUARDADOS EN LA EEPROM*/
-//#define monitoreo
+#define monitoreo
 
 /*----------SENSOR DE TEMPERATURA----------*/
 /*ESPACIOS DE EEPROM
  * 205 = SETPOINT;
- * 215 = HISTERISIS;
- * 225 = HISTERISIS NEGATIVA;
+ * 215 = Histeresis;
+ * 225 = Histeresis NEGATIVA;
  * 235 = INTERVALO DE LECTURA;
  * 245 = UNIDAD
  * 
@@ -77,8 +92,8 @@ File DATA;
 
 /*----------DISPALAY SIETE SEGMENTOS Y CUATRO DIGITOS----------*/
 #define DATO 15  // Pin conectado a DS pin 14 de 74HC595
-#define CLOCK 2// Pin conectado a SHCP pin 11 de 74HC595
-#define LATCH 27// Pin conectado a STCP pin 12 de 74HC595
+#define CLOCK 4// Pin conectado a SHCP pin 11 de 74HC595//esp32 pin 4 para la pcb de prueba
+#define LATCH 2// Pin conectado a STCP pin 12 de 74HC595//esp32 pin 2 para la pcb de prueba
 #define CERO B00111111
 #define UNO B00000110
 #define DOS B01011011
@@ -133,11 +148,13 @@ int unidad = 0;
 /*----------VARIABLES PARA WIFI----------*/
 /*char* ssid = "404";//???????????????
 char* password = "404";//?????????????*/
-const char* ssid = "INFINITUM3F41_2.4";
-const char* password = "xd7TS6tsHJ";
+const char* ssid = "";//"INFINITUM3F41_2.4";
+const char* password = "";//"xd7TS6tsHJ";
 const char* mqtt_server = "test.mosquitto.org"/*"9bd78e371b064745883b9e4ede7be333.s2.eu.hivemq.cloud"//*/;
 WiFiClient espClient;
 PubSubClient client(espClient);
+String Strssid = "";
+String Strpass = "";
 unsigned long lastMsg = 0;//
 char msg[MSG_BUFFER_SIZE];//
 char msgIn[MSG_BUFFER_SIZE];//
@@ -153,6 +170,9 @@ int inicioAnt = 0;//variable usada para separar las secciones de un mensaje entr
 String DATOS[20];//array donde se guardan temporalmente las variables extraidas de los mensajes entrantes hasta que se acomodan en su respectivo lugar
 char EXTRACCION[20];//variable para la extraccion de datos tipo string de memoria eeprom
 boolean extraon = true;//variable para no tener un for en el setup y extraer de la eeprom solo una vez en el loop
+boolean twenty = false;
+boolean serverconectado = true;
+byte intentos = 0;
 /*---------------------------------------*/
 
 /*----------VARIABLES DS18B20----------*/
@@ -160,7 +180,7 @@ float SetPoint = 26;
 float temperaturaIn = 0;
 float lastemperaturaIn = 0;
 float temperaturaOut = 0;
-float Histerisis = 1;
+float Histeresis = 1;
 float HisN = 1;
 unsigned long lecturaMillis = 0;
 unsigned long intervalo = 3000;/*INTERVALO DE LECTURA*/
@@ -248,10 +268,11 @@ void setup_wifi()
 {
   delay(10);
   
-  WiFi.mode(WIFI_STA);
+  WiFi.mode(WIFI_MODE_APSTA);
   WiFi.begin(ssid, password);
   unsigned long waiting = 0;
-  while(WiFi.status() != WL_CONNECTED)
+  unsigned long imposible = millis();
+  while(WiFi.status() != WL_CONNECTED && millis() - imposible <= 3000)
   {
     digitalWrite(LED_WIFI,HIGH);
     if(millis() - waiting >= 500)
@@ -260,6 +281,10 @@ void setup_wifi()
       waiting = millis();
     }
     
+  }
+  if(millis() - imposible >= 3000)
+  {
+    Serial.println("IMPOSIBLE CONECTAR A RED WIFI");
   }
   digitalWrite(LED_WIFI,HIGH);
   randomSeed(micros());
@@ -271,7 +296,7 @@ void callback(char* topic,byte* payload, unsigned int length)
   {
     //Aqui poner codigo para el procesamiento de la informacion entrante
     //Normalmente es asi como se presenta para imprimirla en el puerto serial:
-    //20--TIPO/ID/NOMBRE/SETPOINT/HISTERISIS POSITIVA/HISTERISIS NEGATIVA
+    //20--TIPO/ID/NOMBRE/SETPOINT/Histeresis POSITIVA/Histeresis NEGATIVA
     //----02/AAAA/
     //10--TIPO/ID/TEMPERATURA INTERIOR/TEMPERATURA EXTERIOR/OUT0/OUT1
     MAJIN += (char)payload[i];
@@ -301,12 +326,12 @@ void callback(char* topic,byte* payload, unsigned int length)
         //Serial.println(DATOS[x]);
       }
       SetPoint = DATOS[1].toFloat();
-      Histerisis = DATOS[2].toFloat();
+      Histeresis = DATOS[2].toFloat();
       HisN = DATOS[3].toFloat();
       MAJIN = "";
       EEPROM.put(EEPROM_SETPOINT, SetPoint);
       EEPROM.put(EEPROM_HISTENEG, HisN);
-      EEPROM.put(EEPROM_HISTEPOS, Histerisis);
+      EEPROM.put(EEPROM_HISTEPOS, Histeresis);
       EEPROM.commit();
       break;
       default:
@@ -316,7 +341,7 @@ void callback(char* topic,byte* payload, unsigned int length)
 
 void reconnect()
 {
-  while (!client.connected())
+  while (!client.connected() && serverconectado)
   {
     String clientId = "AAAA";/*EL NOMBRE PUEDE CAMBIAR*/
     //clientId += String(random(0xffff), HEX);
@@ -332,7 +357,18 @@ void reconnect()
       Serial.print(client.state());
       Serial.println(" try again in 5 seconds");
       // Wait 5 seconds before retrying
+      Serial.print("SSID: ");
+      Serial.println(ssid);
+      Serial.print("PASS: ");
+      Serial.println(password);
+      intentos++;
       delay(5000);
+      if(intentos > 5)
+      {
+        serverconectado = false;
+        WIFI = false;
+        intentos = 0;
+      }
     }
   }
 }
@@ -377,11 +413,22 @@ void setup()
   EEPROM.begin(512);
   Serial.begin(9600);
   Serial2.begin(9600,SERIAL_8N1,RX2,TX2);
-  setup_wifi();
+  //setup_wifi();
   client.setServer(mqtt_server, 1883);
-  client.setCallback(callback);
+  client.setCallback(callback);//*/
   SENSOR_IN.begin();
   //SENSOR_OUT.begin();
+  WiFi.softAP(SSID, PASSWORD);
+  IPAddress myIP = WiFi.softAPIP();
+  Serial.print("IP: ");
+  Serial.println(myIP);
+
+  server.on("/", INICIANDO); 
+  server.on("/Online", ONLINE);
+  server.on("/Offline", OFFLINE);
+  server.on("/Cambio", Cambio);
+  server.onNotFound(handle_NotFound);
+  server.begin();
   
   pinMode(DATO,OUTPUT);
   pinMode(CLOCK,OUTPUT);
@@ -406,31 +453,39 @@ void loop()
   if(extraon)
   {
     extraccion_de_EEPROM();
+/*    red_wifi = ssid;
+    contrasena = password;*/
   }
-  if (!client.connected())
+  
+  if(WIFI)
   {
-    reconnect();
+    serverconectado = true;
+    if (!client.connected())
+    {
+      reconnect();
+    }
+    client.loop();
+    unsigned long now = millis();
+    if(now - lastMsg > 300000)
+    {
+      lastMsg = now;
+      /*USAR COMO EJEMPLO PARA LA PUBLICACION DE UN FLOTANTE
+       * char tempString[8];
+       * dtostrf(temperature, 1, 2, tempString);
+       * Serial.print("Temperature: ");
+       * Serial.println(tempString);
+       mqtt.publish(topicTemperature, tempString);//*/
+       //TIPO/ID/TEMPERATURA INTERIOR/TEMPERATURA EXTERIOR/OUT0/OUT1
+       strcpy(msg,MENSAJE.c_str());
+       client.publish(TOPIC,msg);
+    }
+    if(twenty)
+    {
+      crearveinte();
+    }
   }
-  client.loop();
   temperatura();
-  
-  unsigned long now = millis();
-  if(now - lastMsg > 300000)
-  {
-    lastMsg = now;
-    /*USAR COMO EJEMPLO PARA LA PUBLICACION DE UN FLOTANTE
-    char tempString[8];
-    dtostrf(temperature, 1, 2, tempString);
-    Serial.print("Temperature: ");
-    Serial.println(tempString);
-    mqtt.publish(topicTemperature, tempString);//*/
-    //TIPO/ID/TEMPERATURA INTERIOR/TEMPERATURA EXTERIOR/OUT0/OUT1
-    strcpy(msg,MENSAJE.c_str());
-    client.publish(TOPIC,msg);
-    
-    
-  }
-  
+  server.handleClient();
 }
 
 void extraccion_de_EEPROM()
@@ -442,27 +497,49 @@ void extraccion_de_EEPROM()
    EEPROM.get(EEPROM_PASS_LARGE, lengthpass);
    EEPROM.get(EEPROM_SETPOINT, SetPoint);
    EEPROM.get(EEPROM_HISTENEG, HisN);
-   EEPROM.get(EEPROM_HISTEPOS, Histerisis);
+   EEPROM.get(EEPROM_HISTEPOS, Histeresis);
    EEPROM.get(EEPROM_WIFIACTIVO, WIFI);
    /*EEPROM.get(EEPROM_ILECTURA,);
    EEPROM.get(EEPROM_METRICA,);//*/
    EEPROM.commit();
+   #ifdef monitoreo
+   Serial.print("LARGO SSID");
+   Serial.println(lengthssid);
+   Serial.print("LARGO PASSWORD");
+   Serial.println(lengthpass);
+   #endif
    char arrayssid[lengthssid];
    char arraypass[lengthpass];
-   ssid = "";
-   password = "";
+   int casa = 5;
+   int casita = 50;
+   Strpass = "";
+   Strssid = "";
    for(int a = 0; a < lengthssid; a++)
    {
-    EEPROM.get((EEPROM_NOMBRE_RED + a),arrayssid[a]);
+    EEPROM.get((casa + a),arrayssid[a]);
     EEPROM.commit();
-    ssid += arrayssid[a];
+    Strssid += arrayssid[a];
+    #ifdef monitoreo
+    Serial.print("Dato de EEPROM para ssid: ");
+    Serial.println(arrayssid[a]);
+    Serial.print("SSID FORMADA: ");
+    Serial.println(Strssid);
+    #endif
    }
    for(int b = 0; b < lengthpass; b++)
    {
-    EEPROM.get((EEPROM_PASSWORD + b),arraypass[b]);
+    EEPROM.get((casita + b),arraypass[b]);
     EEPROM.commit();
-    password += arraypass[b];
+    Strpass += arraypass[b];
+    #ifdef monitoreo
+    Serial.print("Dato de EEPROM para PASSWORD: ");
+    Serial.println(arraypass[b]);
+    Serial.print("PASSWORD FORMADA: ");
+    Serial.println(Strpass);
+    #endif
    }
+   ssid = Strssid.c_str();
+   password = Strpass.c_str();
    #ifdef monitoreo
    Serial.print("NOMBRE DE RED WIFI: ");
    Serial.println(ssid);
@@ -470,12 +547,15 @@ void extraccion_de_EEPROM()
    Serial.println(password);
    Serial.print("SETPOINT: ");
    Serial.println(SetPoint);
-   Serial.print("HISTERISIS POSITIVA: ");
-   Serial.println(Histerisis);
-   Serial.print("HISTERISIS NEGATIVA: ");
+   Serial.print("Histeresis POSITIVA: ");
+   Serial.println(Histeresis);
+   Serial.print("Histeresis NEGATIVA: ");
    Serial.println(HisN);
    Serial.print(WIFI ? "WIFI ACTIVO" : "WIFI INACTIVO");
    #endif
-  setup_wifi();
-  extraon = false;
+   if(WIFI)
+   {
+    setup_wifi();
+   }
+   extraon = false;
 }
