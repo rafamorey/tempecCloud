@@ -19,7 +19,7 @@ def obtener_user(ux):
         d = h['users']
     return str(d).split("'")[3]
 
-def genesis():
+def tic_tac():
     bol = False
     for h in devices_id.find({}):
         for g in historial.aggregate([{'$match': {'d_id': { '$eq':h['dev_id']}}},
@@ -51,6 +51,6 @@ def genesis():
 
 while True:
     print("><-><-><-><-><-><-><")
-    genesis()
+    tic_tac()
     time.sleep(5)
 

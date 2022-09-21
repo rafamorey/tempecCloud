@@ -1,8 +1,4 @@
-#PROGRAMA DE PRUEBA PARA FILTRAR Y ALMACENAR DATOS
-
-# librerias & cositas
 from datetime import datetime
-from typing import final                
 from pymongo import MongoClient                 
 import paho.mqtt.client as mqtt                   
 import paho.mqtt.publish as publish              
@@ -12,62 +8,47 @@ from concurrent.futures import ThreadPoolExecutor
 
 
 def insertar_historial(opcion, msg_payload):
-    if opcion != 'ack':
-        consult = users.aggregate([{'$match': {'users.devices.d_id': {'$eq': msg_payload.split('/')[1]}}},
+    if opcion != 0:
+        for x in users.aggregate([{'$match': {'users.devices.d_id': {'$eq': msg_payload.split('/')[1]}}},
                             {'$unwind': '$users'},
                             {'$match' : {'users.devices.d_id': {'$eq': msg_payload.split('/')[1]}}},
                             {'$unwind': '$users.devices'},
                             {'$match' : {'users.devices.d_id': {'$eq': msg_payload.split('/')[1]}}},
-                            {'$project': {'_id':0, 'nombre': '$users.devices.d_name', 'sp': '$users.devices.setpoint', 'hmax': '$users.devices.histeresis_high', 'hmin': '$users.devices.histeresis_low'}}])
-
-        for x in consult:
-            name = x['nombre']
-            setp = x['sp']
-            hish = x['hmax']
-            hisl = x['hmin']
+                            {'$project': {'_id':0, 'nombre': '$users.devices.d_name', 'sp': '$users.devices.setpoint', 'hmax': '$users.devices.histeresis_high', 'hmin': '$users.devices.histeresis_low'}}]):
+           
+            _name            = x['nombre']
+            _setpoint        = x['sp']
+            _histeresis_high = x['hmax']
+            _histeresis_low  = x['hmin']
 
         d_id = msg_payload.split('/')[1]
-        _name = name
-        _setpoint = setp
-        _histeresis_high = hish
-        _histeresis_low = hisl
         _out_0 = bool(int(msg_payload.split('/')[4]))
         _out_1 = bool(int(msg_payload.split('/')[5]))
         _temperatura_interior = float(msg_payload.split('/')[2])
         _temperatura_exterior = float(msg_payload.split('/')[3])
 
-        if opcion == '1st':
+        if opcion == 1001:
             _temperatura_maxima = float(msg_payload.split('/')[2])
             _date_maxima = datetime.now()
             _temperatura_minima = float(msg_payload.split('/')[2])
             _date_minima = datetime.now()
 
-        elif opcion == 'noack':
+        elif opcion == 2002:
             for g in historial.find({'d_id': d_id},{'_id':0,'_temperatura_maxima':1, '_temperatura_minima':1, '_temperatura_exterior':1, '_temperatura_interior':1, '_date_maxima':1, '_date_minima':1}).sort('_date',-1).limit(1):
                 #last_temperatura_interior = g['_temperatura_interior']
                 #last_temperatura_exterior = g['_temperatura_exterior']
-                last_temperatura_maxima = g['_temperatura_maxima']
-                last_date_maxima = g['_date_maxima']
-                last_temperatura_minima = g['_temperatura_minima']
-                last_date_minima = g['_date_minima']
+                _temperatura_maxima = g['_temperatura_maxima']
+                _date_maxima = g['_date_maxima']
+                _temperatura_minima = g['_temperatura_minima']
+                _date_minima = g['_date_minima']
 
-            if float(msg_payload.split('/')[2]) > last_temperatura_maxima:  
+            if float(msg_payload.split('/')[2]) > _temperatura_maxima:  
                 _temperatura_maxima = float(msg_payload.split('/')[2])
                 _date_maxima = datetime.now()
-                _temperatura_minima = last_temperatura_minima
-                _date_minima = last_date_minima
 
-            elif float(msg_payload.split('/')[2]) < last_temperatura_minima:
+            elif float(msg_payload.split('/')[2]) < _temperatura_minima:
                 _temperatura_minima = float(msg_payload.split('/')[2])
                 _date_minima = datetime.now()
-                _temperatura_maxima = last_temperatura_maxima
-                _date_maxima = last_date_maxima
-
-            else:
-                _temperatura_maxima = last_temperatura_maxima              
-                _date_maxima = last_date_maxima
-                _temperatura_minima = last_temperatura_minima
-                _date_minima = last_date_minima
 
         dic = {
             'd_id': d_id,
@@ -98,9 +79,9 @@ def funcion_detectar_acknowlaged(msg_payload):
         #last_temperatura_exterior = g['_temperatura_exterior']
 
     if temperatura_interior > (last_temperatura_interior * 1.5) or temperatura_interior < (last_temperatura_interior * 0.5):
-        return "ack"
+        return 0
     else:
-        return "noack"
+        return 2002
 
 def obtener_user(ux):
     for h in users.aggregate([{'$match': {'users.devices.d_id': ux}},
@@ -140,16 +121,14 @@ def main(msg_payload):
     if users.count_documents({'users.devices.d_id':msg_payload.split('/')[1]}) > 0:
         if msg_payload.split('/')[0] == '10':
             if historial.count_documents({'d_id':msg_payload.split('/')[1]}) <= 0:
-                insertar_historial('1st', msg_payload)
+                insertar_historial(1001, msg_payload)
             else:
                 insertar_historial(funcion_detectar_acknowlaged(msg_payload), msg_payload)
         elif msg_payload.split('/')[0] == '20':
             update_device(msg_payload)
-    else:
-        print("Do babes")
 
-def on_connect(client, userdata, flags,rc):
-    client.subscribe("Tempec/Server2")
+def on_connect(client, userdata, flags, rc):
+    client.subscribe("Tempec/Server")
     logo()
 
 def on_message(client, userdata, msg):
@@ -166,7 +145,6 @@ def logo():
     time.sleep(0.1)
     print("                     Tempec             TempecTempecTempec      Tempec                  Tempec      Tempec                  TempecTempecTempec      TempecTempecTempec")
     print("                     =================================================================================================================================================")
-
 
 # logging.basicConfig(level=logging.DEBUG, format='%(threadName)s: %(message)s')
 # mongo = MongoClient('127.0.0.1', 27017)      
