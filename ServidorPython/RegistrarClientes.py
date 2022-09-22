@@ -1,10 +1,6 @@
 from datetime import datetime
 from pymongo import MongoClient
 
-# Enterprise AA
-# User       AAA
-# Devices    AAAA
-# mongo = MongoClient('127.0.0.1', 27017)
 mongo = MongoClient("mongodb+srv://monzav:mongodb057447@cluster0.qilrdwg.mongodb.net/?retryWrites=true&w=majority")
 db = mongo['Tempec_Cloud']
 enterprise = db['Enterprises']
@@ -59,7 +55,8 @@ def registrar_dispositivo(e_id, u_id):
         'histeresis_low': float(input("histeresis_low: ")),
         'last_update': datetime.now(),
         'online': False,
-        'grados':'C'
+        'grados':'C',
+        'alarma':0.7
     }
     for r in enterprise.aggregate([{'$match': {'users.u_id': u_id}},
                                     {'$project':{'_id':0, 'index': {'$indexOfArray': ["$users.u_id", u_id]}}}]):
@@ -79,7 +76,7 @@ def registrar_usuario(id):
         'u_id':u_id,
         'u_name':u_name,
         'u_password':u_password,
-        'u_phone':u_phone,
+        'u_phone': int(u_phone),
         'u_email':u_email,
         'devices':[]
     }

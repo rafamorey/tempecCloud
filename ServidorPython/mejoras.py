@@ -1,9 +1,11 @@
 from datetime import datetime
 from pymongo import MongoClient                 
 import paho.mqtt.client as mqtt                   
-import paho.mqtt.publish as publish                         
+# import paho.mqtt.publish as publish                         
 import time                                      
 from concurrent.futures import ThreadPoolExecutor
+import alive
+import graficar
 
 def insertar_f_historial(msg_payload : str):
     for x in enterprises.aggregate([{'$match': {'users.devices.d_id': {'$eq': msg_payload.split('/')[1]}}},
@@ -23,6 +25,15 @@ def insertar_f_historial(msg_payload : str):
         '_date': datetime.now()
     }
     f_historial.insert_one(dic_f)
+
+def obtener_user(ux):
+    for h in enterprises.aggregate([{'$match': {'users.devices.d_id': ux}},
+                        {'$unwind':'$users'},
+                        {'$match':{'users.devices.d_id': ux}},
+                        {'$project': {'users.u_id':1, '_id':0}}
+                        ]):
+        f = h['users']
+    return str(f).split("'")[3]
 
 def update_device(msg_payload):
     dd = msg_payload.split('/')[1]
@@ -45,6 +56,7 @@ def update_device(msg_payload):
                                              f'users.{u}.devices.{d}.histeresis_high' : float(msg_payload.split('/')[4]), 
                                              f'users.{u}.devices.{d}.histeresis_low': float(msg_payload.split('/')[5]),
                                              f'users.{u}.devices.{d}.grados': float(msg_payload.split('/')[6]),
+                                             f'users.{u}.devices.{d}.alarma': float(msg_payload.split('/')[7]),
                                              f'users.{u}.devices.{d}.last_update' : datetime.now()
                                              }})
 
@@ -52,23 +64,20 @@ def update_device(msg_payload):
 
 def main(msg_payload):   
     print(msg_payload)
-    # if enterprises.count_documents({'users.devices.d_id':msg_payload.split('/')[1]}) > 0:
-    #     if msg_payload.split('/')[0] == '10':
-    #         insertar_f_historial(msg_payload)
-    #     elif msg_payload.split('/')[0] == '20':
-    #         update_device(msg_payload)
+    if enterprises.count_documents({'users.devices.d_id':msg_payload.split('/')[1]}) > 0:
+        if msg_payload.split('/')[0] == '10':
+            insertar_f_historial(msg_payload)
+        elif msg_payload.split('/')[0] == '20':
+            update_device(msg_payload)
 
 def on_connect(client, userdata, flags, rc):
     client.subscribe("Tempec/Server")
-    print("Ready for Duty ***")
+    print("Ready")
+    print("      for")
+    print("          Duty")
 
 def on_message(client, userdata, msg):
     executor.submit(main, msg.payload.decode())
-
-def five_cinco(mimir):
-    while True:
-        time.sleep(mimir)   
-        print("Han pasado 3 segundos")
 
 executor = ThreadPoolExecutor(max_workers=10)           
 
@@ -78,8 +87,7 @@ try:
     db = mongo['Tempec_Cloud']                                                   
     enterprises = db['Enterprises']                                            
     historial = db['Historial']            
-    print("MongoDB iniciado")    
-    time.sleep(1)                               
+    print("MongoDB iniciado")                                  
 except:
     print("No se pudo establecer conexion con MongoDB")   
     
@@ -88,12 +96,12 @@ try:
     monzav = mqtt.Client()  
     monzav.connect("test.mosquitto.org", 1883, 60) 
     print("MQTT Iniciando")
-    time.sleep(1)
     monzav.on_connect = on_connect                                     
     monzav.on_message = on_message                                                 
     #monzav.connect("6c665d3e9b974b849cffc4266267b47b.s2.eu.hivemq.cloud", 8883, 10)
-    executor.submit(five_cinco, 3)
+    executor.submit(graficar.bucle)
+    executor.submit(alive.bucle)
     monzav.loop_forever()    
 except:
-    print("No se pudo establecer conexion con Mosquitto")   
+    print("No se pudo establecer conexion con Mosquitto")
 
