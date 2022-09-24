@@ -2,7 +2,9 @@
   Serial.print("SSID: ");
   Serial.println(Strssid);
   Serial.print("PASSWORD: ");
-  Serial.println(Strpass);
+  Serial.println(Strpass);/*
+  Serial.print("ESTADO: ");
+  Serial.println(server.arg("cb"));*/
   server.send(200, "text/html", SendHTML(WIFI));
 }
  
@@ -25,6 +27,21 @@ void OFFLINE() {
 }
  
 void Cambio() {
+  String indicadores = "";
+  String sifi = "";
+  String warning_positiva = "";
+  String warning_negativa = "";
+  String termo = "";
+  String termo_anterior = "";
+  sifi = server.arg("cb");
+  if(sifi == "OK")
+  {
+    WIFI = true;
+  }
+  else
+  {
+    WIFI = false;
+  }
   if(WIFI)
   {
     red_wifi = server.arg("ssid");
@@ -35,7 +52,32 @@ void Cambio() {
   setpoint = server.arg("setpoint");
   histeresis_h = server.arg("histeresis_high");
   histeresis_l = server.arg("histeresis_low");
-  
+  indicadores = server.arg("INDI");
+  warning_positiva = server.arg("ALERTASUP");
+  warning_negativa = server.arg("ALERTAINF");
+  termo = server.arg("lista");
+  #ifdef monitoreo
+  Serial.println("\\\\\\\\\\\\DATOS RECIVIDOS DE LA APLICACION///////////");
+  Serial.print("ESTADO DEL WIFI: ");
+  Serial.println(server.arg("cb"));
+  Serial.print("SSID: ");
+  Serial.println(red_wifi);
+  Serial.print("PASSWORD: ");
+  Serial.println(contrasena);
+  Serial.print("HISTERESIS POSITIVA: ");
+  Serial.println(histeresis_h);
+  Serial.print("HISTERESIS NEGATIVA: ");
+  Serial.println(histeresis_l);
+  Serial.print("INDICADOR: ");
+  Serial.println(indicadores);
+  Serial.print("ALERTA DE CALOR: ");
+  Serial.println(warning_positiva);
+  Serial.print("ALERTA DE FRIO: ");
+  Serial.println(warning_negativa);
+  Serial.print("VARIABLE TERMOMETRICA: ");
+  Serial.println(termo);
+  Serial.println("\\\\\\\\\\FIN//////////");
+  #endif
   if(WIFI)
   {
     ssid = red_wifi.c_str();
@@ -46,8 +88,13 @@ void Cambio() {
   SetPoint = setpoint.toFloat();
   Histeresis = histeresis_h.toFloat();
   HisN = histeresis_l.toFloat();
-  
-  
+  Warning_heat = warning_positiva.toFloat();
+  Warning_cold = warning_negativa.toFloat();
+  if(indicadores != "activo")
+  {
+    digitalWrite(WAR_COOL, LOW);
+    digitalWrite(WAR_HEAT, LOW);
+  }
   
   if(WIFI)
   {
@@ -88,10 +135,36 @@ void Cambio() {
     }
     
   }
-  
+  termo_anterior = Termometrica;
+  Termometrica = termo.substring(0,1);
+  if(Termometrica != termo_anterior)
+  {
+    SENSOR_IN.requestTemperatures();
+    if(Termometrica == "C")
+    {
+      temperaturaIn = SENSOR_IN.getTempCByIndex(0);
+      SetPoint = (SetPoint-32)/1.8;
+      HisN = HisN/1.8;
+      Histeresis = Histeresis/1.8;
+      Warning_heat = Warning_heat/1.8;
+      Warning_cold = Warning_cold/1.8;
+    }
+    else
+    {
+      temperaturaIn = SENSOR_IN.getTempFByIndex(0);
+      SetPoint = (SetPoint*1.8)+32;
+      HisN = HisN*1.8;
+      Histeresis = Histeresis*1.8;
+      Warning_heat = Warning_heat*1.8;
+      Warning_cold = Warning_cold*1.8;
+    }
+  }
    EEPROM.put(EEPROM_SETPOINT, SetPoint);
    EEPROM.put(EEPROM_HISTENEG, HisN);
    EEPROM.put(EEPROM_HISTEPOS, Histeresis);
+   EEPROM.put(EEPROM_METRICA, termo.substring(0,1));
+   EEPROM.put(EEPROM_WARNINGH, Warning_heat);
+   EEPROM.put(EEPROM_WARNINGC, Warning_cold);
    EEPROM.commit();
    //WIFI=true;
    extraon = true;
@@ -131,21 +204,18 @@ String SendHTML(bool ONLINE) {
   
   ptr +="<form action='/Cambio' method='post'>\n";
   ptr += "<h1 style=color:rgb(255,150,0)>T e m p e c</h1>\n";
-
-  if (ONLINE == false)
+  ptr += "<p style='color:rgb(255,150,0)';> <input type = 'checkbox' id = 'INTERNET' name='cb' value = 'OK' ";
+  if(ONLINE)
   {
-    ptr += "<a class=\"button button-off\" style='height:10px;width:25px;FONT-SIZE:10pt;BACKGROUND-COLOR: rgb(233,10,10)' href=\"/Offline\">Offline</a>\n";
+    ptr += "checked";
   }
-  else
-  {
-    ptr += "<a class=\"button button-off\" style='height:10px;width:25px;FONT-SIZE:10pt' href=\"/Online\">Online</a>\n";
-    ptr += "<p>Red Wi-fi<br> <input type='text' name='ssid'     style='text-align:center;background-color: #AA11AA;color:rgb(255,150,0);' value=";
-    ptr += Strssid;
-    ptr += "></p>\n";
-    ptr += "<p>Password<br>  <input type='text' name='password' style='text-align:center;background-color: #AA11AA;color:rgb(255,150,0);' value=";
-    ptr += Strpass;
-    ptr += "></p>\n";
-  }
+  ptr += ">ONLINE</p>\n";
+  ptr += "<p>Red Wi-fi<br> <input type='text' name='ssid'     style='text-align:center;background-color: #AA11AA;color:rgb(255,150,0);' value=";
+  ptr += Strssid;
+  ptr += "></p>\n";
+  ptr += "<p>Password<br>  <input type='text' name='password' style='text-align:center;background-color: #AA11AA;color:rgb(255,150,0);' value=";
+  ptr += Strpass;
+  ptr += "></p>\n";
   ptr += "<p>- Setpoint -<br> <input type='number' step='0.1' name='setpoint'       style='height:20px;width:40px;background-color: #AA11AA;color:rgb(255,150,0);'  value=";
   ptr += SetPoint;
   ptr += "></p>\n";
@@ -155,7 +225,37 @@ String SendHTML(bool ONLINE) {
   ptr += "<p>Histeresis -<br> <input type='number' step='0.1' name='histeresis_low'  style='height:20px;width:40px;background-color: #AA11AA;color:rgb(255,150,0);' value=";
   ptr += HisN;
   ptr += "></p>\n";
-
+  
+  ptr += "<p>↑ ALERTA ↑<br> <input type='number' step='0.1' name='ALERTASUP' style='height:20px;width:40px;background-color: #AA11AA;color:rgb(255,150,0);'value=";
+  ptr += Warning_heat;
+  ptr += "></p>\n";
+  ptr += "<p>↓ ALERTA ↓<br> <input type='number' step='0.1' name='ALERTAINF'  style='height:20px;width:40px;background-color: #AA11AA;color:rgb(255,150,0);'value=";
+  ptr += Warning_cold;
+  ptr += "></p>\n";
+  
+  ptr += "<p><label><input type='checkbox' id = 'alerta' name = 'INDI' value = 'activo' ";
+  if(digitalRead(WAR_COOL) == HIGH || digitalRead(WAR_HEAT) == HIGH)
+  {
+    ptr += "checked";
+  }
+  ptr += ">INDICADORES</label><br></p>\n";
+  //punk
+  ptr += "<p>GRADOS</p>\n";
+  ptr += "<select style='color:rgb(255,150,0); background-color:#000000;' name='lista'>\n";
+  ptr += "<option value='C'";
+  if(Termometrica == "C")
+  {
+    ptr += "selected";
+  }
+  ptr += ">Celsius</option>\n";
+  ptr += "<option value='F'";
+  if(Termometrica == "F")
+  {
+    ptr += "selected";
+  }
+  ptr += ">Fahrenheit</option>\n";
+  ptr += "</select>\n";
+  
   ptr += "<p><button type='submit' style = 'background-color: #AA11AA;height:40px;width:80px;color:rgb(255,150,0);'>Enviar formulario</button></p>\n";
   ptr += "</form>\n";
   ptr += "</body>\n";

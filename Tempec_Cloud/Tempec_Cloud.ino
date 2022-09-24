@@ -37,12 +37,15 @@ String histeresis_l = "";
  * 225 = Histeresis NEGATIVA;
  * 235 = INTERVALO DE LECTURA;
  * 245 = UNIDAD
- * 
+ * 255 = DIFERENCIAL PARA ALERTA DE ALTA TEMPERATURA
+ * 265 = DIFERENCIAL PARA ALERTA DE BAJA TEMPERATURA
 */
 #define ONE_WIRE_BUS 5
-#define TWO_WIRE_BUS 22/*REVISAR PCB PARA DEFINIRLO*/
+#define TWO_WIRE_BUS 22
 #define OUT_COOL 32
 #define OUT_HEAT 33
+#define WAR_COOL 26
+#define WAR_HEAT 14
 #define SENSOR0 0
 #define SENSOR1 1
 #define EEPROM_SETPOINT 205
@@ -50,7 +53,8 @@ String histeresis_l = "";
 #define EEPROM_HISTEPOS 225
 #define EEPROM_ILECTURA 235
 #define EEPROM_METRICA 245
-
+#define EEPROM_WARNINGH 255
+#define EEPROM_WARNINGC 265
 /*
  * RESISTENCIA PULL-UP  DISTANCIA DEL CABLE (METROS)
  *          4,7 kΩ            De 0 m a 5 m
@@ -77,7 +81,6 @@ String histeresis_l = "";
 */
 #define MSG_BUFFER_SIZE 50
 #define LED_WIFI 25
-#define LED_BLUE 26
 #define TOPIC "Tempec/Server"
 #define TOPSUB "Tempec/Devices"
 #define EEPROM_SSID_LARGE 90
@@ -92,8 +95,8 @@ String histeresis_l = "";
 
 /*----------DISPALAY SIETE SEGMENTOS Y CUATRO DIGITOS----------*/
 #define DATO 15  // Pin conectado a DS pin 14 de 74HC595
-#define CLOCK 4// Pin conectado a SHCP pin 11 de 74HC595//esp32 pin 4 para la pcb de prueba
-#define LATCH 2// Pin conectado a STCP pin 12 de 74HC595//esp32 pin 2 para la pcb de prueba
+#define CLOCK 27// Pin conectado a SHCP pin 11 de 74HC595//esp32 pin 4 para la pcb de prueba
+#define LATCH 2//2// Pin conectado a STCP pin 12 de 74HC595//esp32 pin 2 para la pcb de prueba
 #define CERO B00111111
 #define UNO B00000110
 #define DOS B01011011
@@ -109,12 +112,36 @@ String histeresis_l = "";
 #define DECENAS B00000100
 #define UNIDADES B00001000
 #define PUNTO B10000000
+#define GRADO B01100011
+#define ALTO B01110110
+#define BAJO B00111000
+#define NOTCERO B11000000
+#define NOTUNO B11111001
+#define NOTDOS B10100100
+#define NOTTRES B10110000
+#define NOTCUATRO B10011001
+#define NOTCINCO B10010010
+#define NOTSEIS B10000010
+#define NOTSIETE B11111000
+#define NOTOCHO B10000000
+#define NOTNUEVE B10011000
+#define NOTGRADO B10011100
+#define NOTALTO B10001001
+#define NOTBAJO B11000111
+
 int numeros[10] = {CERO,UNO,DOS,TRES,CUATRO,CINCO,SEIS,SIETE,OCHO,NUEVE};
+int notnumeros[10] = {NOTCERO,NOTUNO,NOTDOS,NOTTRES,NOTCUATRO,NOTCINCO,NOTSEIS,NOTSIETE,NOTOCHO,NOTNUEVE};
 int unidades[4] = {MILLARES,CENTENAS,DECENAS,UNIDADES};
+int SIMBOLO[3] = {GRADO,ALTO,BAJO};
+int NOTSIMBOLO[3] = {NOTGRADO,NOTALTO,NOTBAJO};
+
 int millar = 0;
 int centena = 0;
 int decena = 0;
 int unidad = 0;
+byte SIM = 0;
+boolean parpadeo = false;
+unsigned long timerParpadeo = 0;
 /*
  * ---p--g--f--e--d--c--b--a
  * B--0--0--0--0--0--0--0--0
@@ -143,6 +170,11 @@ int unidad = 0;
 #define RX2 16
 #define TX2 17
 /*----------------*/
+
+/*DETECCION DE FUENTE DE ALIMENTACION*/
+#define DIVISOR 21
+int voltaje = 0;
+/*-----------------------------------*/
 
 
 /*----------VARIABLES PARA WIFI----------*/
@@ -182,12 +214,15 @@ float lastemperaturaIn = 0;
 float temperaturaOut = 0;
 float Histeresis = 1;
 float HisN = 1;
+float Warning_heat = 2;
+float Warning_cold = 2;
+String Termometrica = "C";
 unsigned long lecturaMillis = 0;
 unsigned long intervalo = 3000;/*INTERVALO DE LECTURA*/
 OneWire oneWire_in(ONE_WIRE_BUS);
-//OneWire oneWire_out(TWO_WIRE_BUS);
+OneWire oneWire_out(TWO_WIRE_BUS);
 DallasTemperature SENSOR_IN(&oneWire_in);
-//DallasTemperature SENSOR_OUT(&oneWire_out);
+DallasTemperature SENSOR_OUT(&oneWire_out);
 /*-------------------------------------*/
 
 /*VARIABLES PARA MEMORIA SD*/
@@ -211,52 +246,96 @@ void Task1code(void * pvParameters)
   for(;;)
   {
     float t = temperaturaIn;
-     if(t > 9 && t < 99)
-  {
-    millar = t/10;
-    centena = (t-(millar*10));
-    decena = (t-(centena+(millar*10)))*10;
-    unidad = ((t-(centena+(millar*10)))*100)-(decena*10);
-  }
-  else if(t <= 9 && t > 0)
-  {
-    millar = 0;
-    centena = (t-(millar*10));
-    decena = (t-(centena+(millar*10)))*10;
-    unidad = ((t-(centena+(millar*10)))*100)-(decena*10);
-  }
-  else if(t == -127)
-  {
-    //error = true;
-  }
-    shiftOut(DATO, CLOCK, MSBFIRST, unidades[0]);//DIGITO
-    shiftOut(DATO, CLOCK, MSBFIRST, numeros[millar]);//NUMERO
+    int decmil = 0;
+    if(t > 99 && t <= 999)
+    {
+      decmil = t/100;
+      millar = (t-(decmil*100))/10;
+      centena = ((t-(decmil*100))-(millar*10));
+    }
+    else if(t > 9 && t <= 99)
+    {
+      millar = t/10;
+      centena = (t-(millar*10));
+      decena = (t-(centena+(millar*10)))*10;
+      unidad = ((t-(centena+(millar*10)))*100)-(decena*10);
+    }
+    else if(t <= 9 && t > 0)
+    {
+      millar = 0;
+      centena = (t-(millar*10));
+      decena = (t-(centena+(millar*10)))*10;
+      unidad = ((t-(centena+(millar*10)))*100)-(decena*10);
+    }
+    else if(t == -127)
+    {
+      //error = true;
+    }
+    if(parpadeo)
+    {
+      for(int x = 0; x<=100; x++)
+      {
+        shiftOut(DATO, CLOCK, MSBFIRST, unidades[0]);//DIGITO
+        shiftOut(DATO, CLOCK, MSBFIRST, (Termometrica == "C") ? notnumeros[millar] : notnumeros[decmil]);//NUMERO
     
-    digitalWrite(LATCH,HIGH); // pulso ALTO
-    digitalWrite(LATCH,LOW); // pulso BAJO
-    delay(1);
+        digitalWrite(LATCH,HIGH); // pulso ALTO
+        digitalWrite(LATCH,LOW); // pulso BAJO
+        delay(1);
     
-    shiftOut(DATO, CLOCK, MSBFIRST, unidades[2]);//DIGITO
-    shiftOut(DATO, CLOCK, MSBFIRST, numeros[centena]+PUNTO);//NUMERO
+        shiftOut(DATO, CLOCK, MSBFIRST, unidades[1]);//DIGITO
+        shiftOut(DATO, CLOCK, MSBFIRST, (Termometrica == "C") ? notnumeros[centena]-PUNTO : notnumeros[millar]);//NUMERO
     
-    digitalWrite(LATCH,HIGH); // pulso ALTO
-    digitalWrite(LATCH,LOW); // pulso BAJO
-    delay(1);
+        digitalWrite(LATCH,HIGH); // pulso ALTO
+        digitalWrite(LATCH,LOW); // pulso BAJO
+        delay(1);
     
-    shiftOut(DATO, CLOCK, MSBFIRST, unidades[3]);//DIGITO
-    shiftOut(DATO, CLOCK, MSBFIRST, numeros[decena]);//NUMERO
+        shiftOut(DATO, CLOCK, MSBFIRST, unidades[2]);//DIGITO
+        shiftOut(DATO, CLOCK, MSBFIRST, (Termometrica == "C") ? notnumeros[decena] : notnumeros[centena]);//NUMERO
     
-    digitalWrite(LATCH,HIGH); // pulso ALTO
-    digitalWrite(LATCH,LOW); // pulso BAJO
-    delay(1);
+        digitalWrite(LATCH,HIGH); // pulso ALTO
+        digitalWrite(LATCH,LOW); // pulso BAJO
+        delay(1);
     
-    /*shiftOut(DATO, CLOCK, MSBFIRST, unidades[3]);//DIGITO
-    shiftOut(DATO, CLOCK, MSBFIRST, numeros[unidad]);//NUMERO
+        shiftOut(DATO, CLOCK, MSBFIRST, unidades[3]);//DIGITO
+        shiftOut(DATO, CLOCK, MSBFIRST, NOTSIMBOLO[SIM]);//NUMERO
     
-    digitalWrite(LATCH,HIGH); // pulso ALTO
-    digitalWrite(LATCH,LOW); // pulso BAJO
-    delay(5);*/
+        digitalWrite(LATCH,HIGH); // pulso ALTO
+        digitalWrite(LATCH,LOW); // pulso BAJO
+        delay(1);
+      }
+      //parpadeo = false;
+    }
     
+      for(int z = 0; z<=100; z++)
+      {
+      shiftOut(DATO, CLOCK, MSBFIRST, unidades[0]);//DIGITO
+      shiftOut(DATO, CLOCK, MSBFIRST, (Termometrica == "C") ? numeros[millar] : numeros[decmil]);//NUMERO
+    
+      digitalWrite(LATCH,HIGH); // pulso ALTO
+      digitalWrite(LATCH,LOW); // pulso BAJO
+      delay(1);
+    
+      shiftOut(DATO, CLOCK, MSBFIRST, unidades[1]);//DIGITO
+      shiftOut(DATO, CLOCK, MSBFIRST, (Termometrica == "C") ? numeros[centena]+PUNTO : numeros[millar]);//NUMERO
+    
+      digitalWrite(LATCH,HIGH); // pulso ALTO
+      digitalWrite(LATCH,LOW); // pulso BAJO
+      delay(1);
+    
+      shiftOut(DATO, CLOCK, MSBFIRST, unidades[2]);//DIGITO
+      shiftOut(DATO, CLOCK, MSBFIRST, (Termometrica == "C") ? numeros[decena] : numeros[centena]);//NUMERO
+      
+      digitalWrite(LATCH,HIGH); // pulso ALTO
+      digitalWrite(LATCH,LOW); // pulso BAJO
+      delay(1);
+      
+      shiftOut(DATO, CLOCK, MSBFIRST, unidades[3]);//DIGITO
+      shiftOut(DATO, CLOCK, MSBFIRST, SIMBOLO[SIM]);//NUMERO
+      
+      digitalWrite(LATCH,HIGH); // pulso ALTO
+      digitalWrite(LATCH,LOW); // pulso BAJO
+      delay(1);
+      }
   }
 }
   
@@ -285,8 +364,8 @@ void setup_wifi()
   if(millis() - imposible >= 3000)
   {
     Serial.println("IMPOSIBLE CONECTAR A RED WIFI");
+    digitalWrite(LED_WIFI,LOW);
   }
-  digitalWrite(LED_WIFI,HIGH);
   randomSeed(micros());
 }
 
@@ -362,12 +441,14 @@ void reconnect()
       Serial.print("PASS: ");
       Serial.println(password);
       intentos++;
+      digitalWrite(LED_WIFI,LOW);
       delay(5000);
       if(intentos > 5)
       {
         serverconectado = false;
         WIFI = false;
         intentos = 0;
+        digitalWrite(LED_WIFI,LOW);
       }
     }
   }
@@ -436,7 +517,9 @@ void setup()
   pinMode(OUT_COOL,OUTPUT);
   pinMode(OUT_HEAT,OUTPUT);
   pinMode(LED_WIFI,OUTPUT);
-  pinMode(LED_BLUE,OUTPUT);
+  pinMode(WAR_COOL,OUTPUT);
+  pinMode(WAR_HEAT,OUTPUT);
+  pinMode(DIVISOR,INPUT);
   
   xTaskCreatePinnedToCore(
     Task1code,
@@ -466,7 +549,7 @@ void loop()
     }
     client.loop();
     unsigned long now = millis();
-    if(now - lastMsg > 300000)
+    if(now - lastMsg > 60000)
     {
       lastMsg = now;
       /*USAR COMO EJEMPLO PARA LA PUBLICACION DE UN FLOTANTE
@@ -492,13 +575,16 @@ void extraccion_de_EEPROM()
 {
    int lengthssid = 0;
    int lengthpass = 0;
-
+   char trica;
    EEPROM.get(EEPROM_SSID_LARGE, lengthssid);
    EEPROM.get(EEPROM_PASS_LARGE, lengthpass);
    EEPROM.get(EEPROM_SETPOINT, SetPoint);
    EEPROM.get(EEPROM_HISTENEG, HisN);
    EEPROM.get(EEPROM_HISTEPOS, Histeresis);
    EEPROM.get(EEPROM_WIFIACTIVO, WIFI);
+   EEPROM.get(EEPROM_WARNINGH, Warning_heat);
+   EEPROM.get(EEPROM_WARNINGC, Warning_cold);
+   EEPROM.get(EEPROM_METRICA, trica);
    /*EEPROM.get(EEPROM_ILECTURA,);
    EEPROM.get(EEPROM_METRICA,);//*/
    EEPROM.commit();
@@ -514,6 +600,7 @@ void extraccion_de_EEPROM()
    int casita = 50;
    Strpass = "";
    Strssid = "";
+   Termometrica = trica;
    for(int a = 0; a < lengthssid; a++)
    {
     EEPROM.get((casa + a),arrayssid[a]);
@@ -541,6 +628,7 @@ void extraccion_de_EEPROM()
    ssid = Strssid.c_str();
    password = Strpass.c_str();
    #ifdef monitoreo
+   Serial.println("////////////////////DATOS EXTRAIDOS DE EEPROM\\\\\\\\\\\\\\\\\\\\");
    Serial.print("NOMBRE DE RED WIFI: ");
    Serial.println(ssid);
    Serial.print("CONTRASEÑA: ");
@@ -551,7 +639,14 @@ void extraccion_de_EEPROM()
    Serial.println(Histeresis);
    Serial.print("Histeresis NEGATIVA: ");
    Serial.println(HisN);
-   Serial.print(WIFI ? "WIFI ACTIVO" : "WIFI INACTIVO");
+   Serial.println(WIFI ? "WIFI ACTIVO" : "WIFI INACTIVO");
+   Serial.print("METRICA: ");
+   Serial.println(Termometrica);
+   Serial.print("ALERTA ALTA TEMPERATURA: ");
+   Serial.println(Warning_heat);
+   Serial.print("ALERTA BAJA TEMPERATURA: ");
+   Serial.println(Warning_cold);
+   Serial.println("////////////////////TERMINACION DE DATOS\\\\\\\\\\\\\\\\\\\\");
    #endif
    if(WIFI)
    {

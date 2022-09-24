@@ -3,9 +3,24 @@ void temperatura()
     if(millis() - lecturaMillis >= intervalo)
   {
     SENSOR_IN.requestTemperatures();
-    temperaturaIn = SENSOR_IN.getTempCByIndex(0);
-    Serial.print("TEMPERATURA: ");
+    SENSOR_OUT.requestTemperatures();
+    if(Termometrica == "C")
+    {
+      temperaturaIn = SENSOR_IN.getTempCByIndex(0);
+      temperaturaOut = SENSOR_OUT.getTempCByIndex(0);
+    }
+    else if(Termometrica == "F")
+    {
+      temperaturaIn = SENSOR_IN.getTempFByIndex(0);
+      temperaturaOut = SENSOR_OUT.getTempFByIndex(0);
+    }
+    Serial.print("TEMPERATURA INTERIOR: ");
     Serial.println(temperaturaIn);
+    Serial.print("TEMPERATURA EXTERIOR: ");
+    Serial.println(temperaturaOut);
+    Serial.print("VOLTAJE EN 21: ");
+    voltaje = digitalRead(DIVISOR);
+    Serial.println(voltaje);
     //temperaturaEx = sensor.getTempCByIndex(1);
     //if(temperaturaIn != lastemperaturaIn)
     //{
@@ -26,8 +41,10 @@ void temperatura()
   {
     digitalWrite(OUT_COOL,LOW);
     digitalWrite(OUT_HEAT,LOW);
+    parpadeo = false;
     COOLING = false;
     HEATING = false;
+    SIM = 0;
   }
   else if(temperaturaIn <= (SetPoint-Histeresis))
   {
@@ -42,8 +59,11 @@ void temperatura()
     digitalWrite(OUT_HEAT,LOW);
     COOLING = false;
     HEATING = false;
+    SIM = 0;
+    parpadeo = false;
   }
   crear();
+  alertas();
 }
 
 
@@ -77,4 +97,30 @@ void crearveinte()
   strcpy(msgIn,VEINTE.c_str());
   client.publish(TOPIC,msgIn);
   twenty = false;
+}
+
+
+
+void alertas()
+{
+  if(temperaturaIn >= (SetPoint + Warning_heat))
+  {
+    //ENVIAR ALERTA AL SERVIDOR(QUE SOLO SERA ENVIAR LA TEMPERATURA)
+    digitalWrite(WAR_HEAT,HIGH);
+    SIM = 1;
+    parpadeo = true;
+  }
+  else if(temperaturaIn <= (SetPoint - Warning_cold))
+  {
+    digitalWrite(WAR_COOL,HIGH);
+    SIM = 2;
+    parpadeo = true;
+  }
+  
+  if(temperaturaIn < (SetPoint + Histeresis) && temperaturaIn > (SetPoint - Histeresis))
+  {
+    parpadeo = false;
+    SIM = 0;
+  }
+  
 }
