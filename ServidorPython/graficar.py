@@ -11,11 +11,11 @@ def grafica():
     for r in db.list_collection_names():
         if r != 'Historial' and r != 'Enterprises':
             print(r.split('_')[1])
-            for x in enterprises.aggregate([{'$match': {'users.devices.d_id': {'$eq': 'AAAA'}}},
+            for x in enterprises.aggregate([{'$match': {'users.devices.d_id': {'$eq': r.split('_')[1]}}},
                             {'$unwind': '$users'},
-                            {'$match' : {'users.devices.d_id': {'$eq': 'AAAA'}}},
+                            {'$match' : {'users.devices.d_id': {'$eq': r.split('_')[1]}}},
                             {'$unwind': '$users.devices'},
-                            {'$match' : {'users.devices.d_id': {'$eq': 'AAAA'}}},
+                            {'$match' : {'users.devices.d_id': {'$eq': r.split('_')[1]}}},
                             {'$project': {'_id':0,  'alive': '$users.devices.online'}}]):
                 online = x['alive']
                 if online:
