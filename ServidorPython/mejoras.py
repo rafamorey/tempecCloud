@@ -20,8 +20,11 @@ def insertar_f_historial(msg_payload : str):
     f_historial = db['fHistorial_' + str(msg_payload.split('/')[1])]
 
     dic_f = {
-        '_valo': float(msg_payload.split('/')[2]),
+        '_inte': float(msg_payload.split('/')[2]),
+        '_exte': float(msg_payload.split('/')[3]),
         '_tipo': tipo,
+        '_out_0': int(msg_payload.split('/')[4]),
+        '_out_1': int(msg_payload.split('/')[5]),
         '_date': datetime.now()
     }
     f_historial.insert_one(dic_f)
@@ -69,6 +72,8 @@ def main(msg_payload):
             insertar_f_historial(msg_payload)
         elif msg_payload.split('/')[0] == '20':
             update_device(msg_payload)
+        elif msg_payload.split('/')[0] == '30':
+            graficar.insertar_historial(True, 30, msg_payload)
 
 def on_connect(client, userdata, flags, rc):
     client.subscribe("Tempec/Server")

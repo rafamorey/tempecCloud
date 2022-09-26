@@ -42,6 +42,5 @@ def tic_tac():
 def bucle():
     while True:
         tic_tac()
-        print("Funcion Alive")
         time.sleep(5)
 
