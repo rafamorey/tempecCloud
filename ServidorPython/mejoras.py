@@ -7,7 +7,7 @@ from concurrent.futures import ThreadPoolExecutor
 import alive
 import graficar
 
-def insertar_f_historial(msg_payload : str):
+def insertar_f_historial(msg_payload : str, sumar):
     for x in enterprises.aggregate([{'$match': {'users.devices.d_id': {'$eq': msg_payload.split('/')[1]}}},
                             {'$unwind': '$users'},
                             {'$match' : {'users.devices.d_id': {'$eq': msg_payload.split('/')[1]}}},
@@ -69,11 +69,12 @@ def main(msg_payload):
     print(msg_payload)
     if enterprises.count_documents({'users.devices.d_id':msg_payload.split('/')[1]}) > 0:
         if msg_payload.split('/')[0] == '10':
-            insertar_f_historial(msg_payload)
+            insertar_f_historial(msg_payload, True)
         elif msg_payload.split('/')[0] == '20':
             update_device(msg_payload)
         elif msg_payload.split('/')[0] == '30':
-            graficar.insertar_historial(True, 30, msg_payload)
+            primer = True if True else False
+            graficar.insertar_historial(primer, 30, msg_payload)
 
 def on_connect(client, userdata, flags, rc):
     client.subscribe("Tempec/Server")

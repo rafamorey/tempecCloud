@@ -15,6 +15,10 @@ db = mongo['Tempec_Cloud']
 enterprises = db['Enterprises']                                            
 historial = db['Historial']  
 
-for g in db['fHistorial_AAAB'].find({},{'_id':0}).sort('_date',-1).limit(5):
-    pass
-print(g['_valo'])
+
+for g in historial.find({'d_id': 'AAAA'},{'_id':0,'_temperatura_maxima':1, '_temperatura_minima':1, '_temperatura_exterior':1, '_temperatura_interior':1, '_date_maxima':1, '_date_minima':1, '_date':1}).sort('_date',-1).limit(1):
+            _temperatura_maxima = g['_temperatura_maxima']
+            _date_maxima = g['_date_maxima']
+            _temperatura_minima = g['_temperatura_minima']
+            _date_minima = g['_date_minima']
+            print(g)
