@@ -4,108 +4,74 @@ from pymongo import MongoClient
 mongo = MongoClient("mongodb+srv://monzav:mongodb057447@cluster0.qilrdwg.mongodb.net/?retryWrites=true&w=majority")
 db = mongo['Tempec_Cloud']
 enterprise = db['Enterprises']
-devices = db['devices_id']
+# devices = db['devices_id']
 
-def registrar_empresa():
-    print("================ DATOS DE LA EMPRESA ====================")
-    id = input("_id: ")
-    enterpri = input("enterprise: ")
-    password = input("passoword: ")
-    phone = input("phone: ")
-    email = input("email: ")
-    
+def registrar_dispositivo():
+    e_id = input("ingrese sú _id: ")
     dic = {
-        'e_id':id,
-        'enterprise':enterpri,
-        'e_password':password,
-        'e_phone': int(phone),
-        'e_email':email,
-        'users': []
-    }
-    enterprise.insert_one(dic)
-    print("Done!\n\n")
-
-def comprobar_usuario(id_entreprise):
-    id_usuario = input("Ingrese id de usuario: ")
-    if enterprise.count_documents({'$and':[{'e_id':id_entreprise},{'users.u_id':id_usuario}]}) > 0:
-        registrar_dispositivo(id_entreprise, id_usuario)
-    else:
-        print("No se encontro ese id de usuario en esa Empresa")
-
-def comprobar_empresa(o):
-    print("================DATOS DEL USUARIO====================")
-    id = input("Ingrese id de Empresa: ")
-    if enterprise.count_documents({'e_id':id}) > 0:
-        print("La empresa es ", enterprise.find_one({'e_id':id})['enterprise'])
-        if o == 0:
-                registrar_usuario(id)
-        elif o == 1:
-            comprobar_usuario(id)
-    else:
-        print("No se encontro ninguna empresa con ese id")
-
-def registrar_dispositivo(e_id, u_id):
-    ddd = input("d_id: ")
-    dic = {
-        'd_id': ddd,
-        'd_name': input("d_name: "),
-        'location': input("location: "),
+        'id': input("ingrese id de dispositivo: "),
+        'name': input("name: "),
         'setpoint': float(input("setpoint: ")),
-        'histeresis_high': float(input("histeresis_high: ")),
-        'histeresis_low': float(input("histeresis_low: ")),
-        'last_update': datetime.now(),
+        'tempInt': 0.0,
+        'tempExt': 0.0,
+        'hisH': float(input("histeresis_high: ")),
+        'hisL': float(input("histeresis_low: ")),
+        'tempMax': 0.0,
+        'dateMax': datetime.now(),
+        'tempMin': 0.0,
+        'dateMin': datetime.now(),
+        'alarmaH': 2.0,
+        'alarmaL': 2.0,
         'online': False,
         'grados':'C',
-        'alarma':0.7
+        'last_setpoint': 0.0,
+        'last_hisH': 0.0,
+        'last_hisL': 0.0,
+        'last_alarmaH':0.0,
+        'last_alarmaL':0.0,
+        'last_grados':'C',
+        'last_update': datetime.now()
     }
-    for r in enterprise.aggregate([{'$match': {'users.u_id': u_id}},
-                                    {'$project':{'_id':0, 'index': {'$indexOfArray': ["$users.u_id", u_id]}}}]):
-        ind = r['index']
-    enterprise.update_one({'e_id': e_id }, {'$push' : {f'users.{ind}.devices' : dic }})
 
-    devices.insert_one({'dev_id': ddd})
+    enterprise.update_one({'_id': e_id }, {'$push' : {'devices' : dic }})
+
+    # devices.insert_one({'dev_id': ddd})
     print("Done!\n\n")
 
-def registrar_usuario(id):
+def registrar_usuario():
     u_id = input("id: ")
     u_name = input("name: ")
     u_password = input("password: ")
     u_phone = input("phone: ")
     u_email = input("email: ")
     dic = {
-        'u_id':u_id,
-        'u_name':u_name,
-        'u_password':u_password,
-        'u_phone': int(u_phone),
-        'u_email':u_email,
+        '_id':u_id,
+        'name':u_name,
+        'password':u_password,
+        'email':u_email,
+        'phone': int(u_phone),
         'devices':[]
     }
 
-    enterprise.update_one({'e_id': id }, {'$push' : {'users' : dic }})
+    # enterprise.update_one({'e_id': id }, {'$push' : {'users' : dic }})
+    enterprise.insert_one(dic)
     print("Done!\n\n")
 
 def inicio():
     print("=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=")
     print("                           Programa para Registrar Empresas, Usuarios y Dispositivos")
-    print("1- Registrar Empresa")
-    print("2- Registrar Cliente")
-    print("3- Registrar Dispositivo")
+    print("1- Registrar Cliente")
+    print("2- Registrar Dispositivo")
 
     opcion = input("          Opcion:")
 
     if opcion == '1':
-      registrar_empresa()
+        registrar_usuario()
     elif opcion == '2':
-        comprobar_empresa(0)
-    elif opcion == '3':
-        comprobar_empresa(1)
+        registrar_dispositivo()
         pass
     else:
         print("Skeereeee")
 
 while 1:
     inicio()
-
-# Enterprise    AB
-# User          AAG
-# Device        AAAG
