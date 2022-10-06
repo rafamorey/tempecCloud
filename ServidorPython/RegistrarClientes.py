@@ -24,6 +24,7 @@ def registrar_dispositivo():
         'alarmaL': 2.0,
         'online': False,
         'grados':'C',
+        'last_name': 'Monzav',
         'last_setpoint': 0.0,
         'last_hisH': 0.0,
         'last_hisL': 0.0,

@@ -22,19 +22,20 @@ historial = db['Historial']
 #         'date': datetime.datetime.now()
 #     }
 # f_historial.insert_one(dic_f)
-
-for r in db.list_collection_names():
-    if r != 'Historial' and r != 'Enterprises':
-        for x in enterprises.aggregate([{'$match': {'devices.id': {'$eq': r.split('_')[1]}}},
-                        {'$unwind': '$devices'},
-                        {'$match' : {'devices.id': {'$eq': r.split('_')[1]}}},
-                        {'$project': {'_id':0,  'grados': '$devices.grados'}}
-                        ]):
-            grados = x['grados']
-            print(grados)
-
-
+                                
+for x in enterprises.aggregate([{'$match': {'devices.name': {'$eq': 'Genesis'}}},
+                            {'$unwind': '$devices'},
+                            {'$match' : {'devices.name': {'$eq': 'Genesis'}}},
+                            {'$project': {
+                                'id': '$devices.id', 
+                                'name': '$devices.name',
+                                'setpoint': '$devices.setpoint',
+                                'tempInt': '$devices.tempInt',
+                                'tempExt': '$devices.tempExt',
+                                'hisH': '$devices.hisH'
+                                }}
+                            ]):
+    print(x)
 # historial.delete_many({'d_id':'AAAZ'})
 # db['fHistorial_AAAZ'].delete_many({'_inte': {'$gt': 0}})
 # db['fHistorial_AAAZ'].delete_many({'_inte': -127})
-

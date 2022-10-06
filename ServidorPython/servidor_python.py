@@ -1,7 +1,6 @@
 import datetime
 import pymongo            
-import paho.mqtt.client as mqtt                   
-import paho.mqtt.publish as publish                         
+import paho.mqtt.client as mqtt                                           
 import time                                      
 import concurrent.futures
 
@@ -25,25 +24,39 @@ def tic_tac(): # Funcion Bucle Alive
             else:
                 print(f"El equipo {r.split('_')[1]} aun no tiene datos")
 
-def tac_tic():
+def tac_tic(): # Funcion Bucle Alive
     for r in db.list_collection_names():
         if r != 'Historial' and r != 'Enterprises':
+            id_dispositivo = r.split('_')[1]
             for x in enterprises.aggregate([{'$match': {'devices.id': {'$eq': r.split('_')[1]}}},
                             {'$unwind': '$devices'},
                             {'$match' : {'devices.id': {'$eq': r.split('_')[1]}}},
-                            {'$project': {'_id':0,  'grados': '$devices.grados'}}
+                            {'$project': {'_id':0, 'last_name':'$devices.last_name', 'last_setpoint': '$devices.last_setpoint', 'last_hisH': '$devices.last_hisH', 'last_hisL': '$devices.last_hisL', 'last_alarmaH': '$devices.last_alarmaH', 'last_alarmaL': '$devices.last_alarmaL', 'last_grados': '$devices.last_grados', 'name':'$devices.name', 'setpoint': '$devices.setpoint', 'hisH': '$devices.hisH', 'hisL': '$devices.hisL', 'alarmaH': '$devices.alarmaH', 'alarmaL': '$devices.alarmaL', 'grados': '$devices.grados'}}
                             ]):
-                grados = x['grados']
-                print(grados)
+
+                if x['setpoint'] != x['last_setpoint'] or x['hisH'] != x['last_hisH'] or x['hisL'] != x['last_hisL'] or x['alarmaH'] != x['last_alarmaH'] or x['alarmaL'] != x['last_alarmaL'] or x['grados'] != x['last_grados'] or x['last_name'] != x['name']:
+                    for r in enterprises.aggregate([{'$match': {'devices.id': id_dispositivo}},
+                                {'$project':{'_id':0, 'index': {'$indexOfArray': ["$devices.id", id_dispositivo]}}}]):
+                        idx = str(r['index'])
+    
+                    enterprises.update_one({'devices.id': id_dispositivo},{'$set': {
+                        f'devices.{idx}.last_name' : x['name'],
+                        f'devices.{idx}.last_setpoint' : x['setpoint'],
+                        f'devices.{idx}.last_hisH' : x['hisH'],
+                        f'devices.{idx}.last_hisL': x['hisL'],
+                        f'devices.{idx}.last_alarmaH': x['alarmaH'],
+                        f'devices.{idx}.last_alarmaL': x['alarmaL'],
+                        f'devices.{idx}.last_grados': x['grados'],
+                        f'devices.{idx}.last_update' : datetime.datetime.now() 
+                        }})
+                    monzav.publish('Tempec/Devices', '20/' + id_dispositivo + '/' + x['name']  + '/' + str(x['setpoint']) + '/' + str(x['hisH']) + '/' + str(x['hisL']) + '/' + str(x['alarmaH']) + '/' + str(x['alarmaL']) + '/' + x['grados']) 
 
 def bucle_alive(): # Funcion Bucle Alive
     while True:
-        for tiempo_alive in range(1,6):
-            print(f"{tiempo_alive} - 5 _Online")
-            time.sleep(1)
         tic_tac()
         tac_tic()
-        print("Done !")
+        print("Done Alive !!!")
+        time.sleep(5)
 
 def insertar_f_historial(msg_payload : str):
     for x in enterprises.aggregate([{'$match': {'devices.id': {'$eq': msg_payload.split('/')[1]}}},
@@ -61,16 +74,14 @@ def insertar_f_historial(msg_payload : str):
         'grados': grados,
         'date': datetime.datetime.now()
     }
-    # f_historial.insert_one(dic_f)
-    print(dic_f)
+    f_historial.insert_one(dic_f)
 
 def update_device(msg_payload):
     id_dispositivo = msg_payload.split('/')[1]
     for r in enterprises.aggregate([{'$match': {'devices.id': id_dispositivo}},
                         {'$project':{'_id':0, 'index': {'$indexOfArray': ["$devices.id", id_dispositivo]}}}]):
         idx = str(r['index'])
-        print(idx)
-    print(id_dispositivo)
+
     enterprises.update_one({'devices.id': id_dispositivo},{'$set': {
                                              f'devices.{idx}.name' : msg_payload.split('/')[2],
                                              f'devices.{idx}.setpoint' : float(msg_payload.split('/')[3]),
@@ -86,7 +97,6 @@ def update_device(msg_payload):
 def main(msg_payload):   
     print(msg_payload)
     if enterprises.count_documents({'devices.id': msg_payload.split('/')[1]}) > 0:
-        print(f'Si existe el dispositivo')
         if msg_payload.split('/')[0] == '10':
             insertar_f_historial(msg_payload)
         elif msg_payload.split('/')[0] == '20':
@@ -97,11 +107,7 @@ def main(msg_payload):
 
 def on_connect(client, userdata, flags, rc):
     client.subscribe("Tempec/Server")
-    print(" GOGOGOGO     GOGOGO              GO")
-    print("GO          GO      GO            GO")
-    print("GO   GOGO   GO      GO            GO")
-    print("GO     GO   GO      GO      ")
-    print(" GOGOGO       GOGOGO              GO")
+    print("(|*|)")
     print("\n")
 
 def on_message(client, userdata, msg):
@@ -175,9 +181,8 @@ def grafica():#Funcion Historial
                             k_arr.append(g['grados'])
 
                         value_array = trasformada(v1_arr, k_arr)
-
                         valor = tendencia(value_array)
-                        print(valor)
+
                         msg = 'aux/' + r.split('_')[1] + '/' + str(valor) + '/' + str(v2_arr[0])
                         # Hasta este punto tengo el msg con el valor que sera procesado con la ultima X (para saber de que hablo recordar al pizarron)
 
@@ -290,9 +295,21 @@ def insertar_historial(first_msg, opcion, msg_payload: str):#Funcion Historial
         'contador': conta,
         'date': _date
     }
+    id_dispositivo = msg_payload.split('/')[1]
+    for r in enterprises.aggregate([{'$match': {'devices.id': id_dispositivo}},
+                        {'$project':{'_id':0, 'index': {'$indexOfArray': ["$devices.id", id_dispositivo]}}}]):
+        idx = str(r['index'])
 
-    # historial.insert_one(dic)
-    print(dic)
+    enterprises.update_one({'devices.id': id_dispositivo},{'$set': {
+                                             f'devices.{idx}.tempInt' : tempInt,
+                                             f'devices.{idx}.tempExt' : tempExt,
+                                             f'devices.{idx}.tempMax' : tempMax,
+                                             f'devices.{idx}.dateMax' : dateMax,
+                                             f'devices.{idx}.tempMin' : tempMin,
+                                             f'devices.{idx}.dateMin' : dateMin,
+                                             }})
+
+    historial.insert_one(dic)
 
 def trasformada(v_arr2, k_arr2):#Funcion Historial
     value_array2 = []
@@ -311,9 +328,7 @@ def bucle(): #Funcion Historial
     time.sleep(5)
     while True:
         grafica()
-        for tiempo_grafica in range(1,31):
-            print(f"{tiempo_grafica} - 30 Historial")
-            time.sleep(1)
+        time.sleep(30)
 
 print("Iniciando MongoDB...")
 mongo = pymongo.MongoClient("mongodb+srv://monzav:mongodb057447@cluster0.qilrdwg.mongodb.net/?retryWrites=true&w=majority")
@@ -330,6 +345,6 @@ print("MQTT Iniciando")
 monzav.on_connect = on_connect                                     
 monzav.on_message = on_message                                                 
 #monzav.connect("6c665d3e9b974b849cffc4266267b47b.s2.eu.hivemq.cloud", 8883, 10)
-# executor.submit(bucle)
+executor.submit(bucle)
 executor.submit(bucle_alive)
 monzav.loop_forever()
