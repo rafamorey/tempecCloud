@@ -12,30 +12,32 @@ mongo = MongoClient("mongodb+srv://monzav:mongodb057447@cluster0.qilrdwg.mongodb
 db = mongo['Tempec_Cloud']                                                   
 enterprises = db['Enterprises']                                            
 historial = db['Historial']  
-# f_historial = db['fHistorial_AAAA']
+f_historial = db['fHistorial_AAAB']
 # f_historial = db['fHistorial_AAAZ']
+     
+inicio = datetime.datetime(2022, 10, 18, 1, 40, 47, 88000)    
+# final = datetime.datetime(2022, 10, 13, 10, 30, 47, 88000)
+# historial.delete_many({'d_id':'AAAB', 'date': {'$gt': final}})
+v1_arr, v2_arr, k_arr = [],[],[]
 
-# dic_f = {
-#         'int': 26.6,
-#         'ext': 32.5,
-#         'grados': 'C',
-#         'date': datetime.datetime.now()
-#     }
-# f_historial.insert_one(dic_f)
-                                
-for x in enterprises.aggregate([{'$match': {'devices.name': {'$eq': 'Genesis'}}},
-                            {'$unwind': '$devices'},
-                            {'$match' : {'devices.name': {'$eq': 'Genesis'}}},
-                            {'$project': {
-                                'id': '$devices.id', 
-                                'name': '$devices.name',
-                                'setpoint': '$devices.setpoint',
-                                'tempInt': '$devices.tempInt',
-                                'tempExt': '$devices.tempExt',
-                                'hisH': '$devices.hisH'
-                                }}
-                            ]):
-    print(x)
-# historial.delete_many({'d_id':'AAAZ'})
-# db['fHistorial_AAAZ'].delete_many({'_inte': {'$gt': 0}})
-# db['fHistorial_AAAZ'].delete_many({'_inte': -127})
+# for g in db['fHistorial_AAAB'].find({},{'_id':0}).sort('date',-1).limit(5):
+#     print(g['int'])
+#     v1_arr.append(g['int'])
+# print(v1_arr)
+
+# for j in historial.find({'d_id':'AAAB', 'date': {'$gt':inicio}}):
+#     print(j['tempInt'])
+
+for x in historial.aggregate([
+    {'$match': {'d_id': 'AAAB'}},
+    #{'$match': {'date': {'$lt': inicio}}},#, '$lt': final}}},
+    {'$project': {
+        '_id':0, 
+        'tempInt': '$tempInt',
+        'contador': '$contador',
+        'fake' : '$fake',
+        'date': '$date'
+        }}
+        ]):
+    xxx = str(x['contador']) + ' - ' + str(x['tempInt']) + ' - ' + str(x['fake']) + " - " + str(x['date'])
+    print(xxx)
