@@ -192,8 +192,9 @@ def INSERTAR_HISTORIAL(first_msg, opcion, msg_payload: str):
     for z in enterprises.aggregate([{'$match': {'devices.id': {'$eq': msg_payload.split('/')[1]}}},
                             {'$unwind': '$devices'},
                             {'$match' : {'devices.id': {'$eq': msg_payload.split('/')[1]}}},
-                            {'$project': {'_id':0, 'nombre': '$devices.name', 'sp': '$devices.setpoint', 'hmax': '$devices.hisH', 'hmin': '$devices.hisL'}}
+                            {'$project': {'_id':0, 'enter':'$name', 'nombre': '$devices.name', 'sp': '$devices.setpoint', 'hmax': '$devices.hisH', 'hmin': '$devices.hisL'}}
                             ]):
+        enter = z['enter']
         _name = z['nombre']
         _setpoint = z['sp']
         hisH = z['hmax']
@@ -286,12 +287,12 @@ def INSERTAR_HISTORIAL(first_msg, opcion, msg_payload: str):
             _date = datetime.datetime.now()
             conta = 0
             fake = tempInt_actual
-            # print("Punk")
 
     dic = {
-        'd_id': d_id,
+        'enterprise': enter,
+        '_id': d_id,
         'name': _name,
-        'setpoint': _setpoint,
+        'setPoint': _setpoint,
         'tempInt': tempInt_actual,
         'tempExt': tempExt,
         'hisH': hisH,
