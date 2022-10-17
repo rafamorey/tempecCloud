@@ -8,10 +8,13 @@ cuerdas = concurrent.futures.ThreadPoolExecutor(max_workers=10)
 
 def ONLINE_DEVICE():
     for r in db.list_collection_names():
-        if r != 'Historial' and r != 'Enterprises':
+        if r != 'Enterprises' and r != 'devices':
+
             if db['fHistorial_'+ r.split('_')[1]].count_documents({}) > 0:
+
                 for g in db['fHistorial_'+ r.split('_')[1]].aggregate([{'$group': {'_id':{}, 'fecha': {'$last':'$date'}}}]):
                     c = datetime.datetime.now() - g['fecha']
+
                     bol = True if c.days < 1 and c.seconds < 300 else False
 
                     for ex in enterprises.aggregate([{'$match': {'devices.id': r.split('_')[1]}},
@@ -26,7 +29,7 @@ def ONLINE_DEVICE():
 
 def UPDATE_CONFIG_DEVICE_DB():
     for r in db.list_collection_names():
-        if r != 'Historial' and r != 'Enterprises':
+        if r != 'devices' and r != 'Enterprises':
             id_dispositivo = r.split('_')[1]
             for x in enterprises.aggregate([{'$match': {'devices.id': {'$eq': r.split('_')[1]}}},
                             {'$unwind': '$devices'},
@@ -49,13 +52,14 @@ def UPDATE_CONFIG_DEVICE_DB():
                         f'devices.{idx}.last_grados': x['grados'],
                         f'devices.{idx}.last_update' : datetime.datetime.now() 
                         }})
-                    monzav.publish('Tempec/Devices', '20/' + id_dispositivo + '/' + x['name']  + '/' + str(x['setpoint']) + '/' + str(x['hisH']) + '/' + str(x['hisL']) + '/' + str(x['alarmaH']) + '/' + str(x['alarmaL']) + '/' + x['grados']) 
+                    mqttClient.publish('Tempec/Devices', '20/' + id_dispositivo + '/' + x['name']  + '/' + str(x['setpoint']) + '/' + str(x['hisH']) + '/' + str(x['hisL']) + '/' + str(x['alarmaH']) + '/' + str(x['alarmaL']) + '/' + x['grados']) 
 
 def BUCLE_ULTRA_INSTINTO():
     while True:
         ONLINE_DEVICE()
         UPDATE_CONFIG_DEVICE_DB()
-        time.sleep(5)
+        print(F"UI - {datetime.datetime.now()}")
+        time.sleep(44)
 
 def INSERTAR_FHISTORIAL(msg_payload : str):
     for x in enterprises.aggregate([{'$match': {'devices.id': {'$eq': msg_payload.split('/')[1]}}},
@@ -91,10 +95,9 @@ def UPDATE_CONFIG_DEVICE_20(msg_payload):
                                              f'devices.{idx}.grados': msg_payload.split('/')[8],
                                              f'devices.{idx}.last_update' : datetime.datetime.now()
                                              }})
-    print("====Update==================================" + str(datetime.datetime.now()) +"=============================================")
 
 def BLAST(msg_payload):   
-    print(msg_payload)
+    print(F"= = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = > {msg_payload}")
     if enterprises.count_documents({'devices.id': msg_payload.split('/')[1]}) > 0:
         if msg_payload.split('/')[0] == '10':
             INSERTAR_FHISTORIAL(msg_payload)
@@ -106,8 +109,7 @@ def BLAST(msg_payload):
 
 def CONEISHION(client, userdata, flags, rc):
     client.subscribe("Tempec/Server")
-    print("(|*|)")
-    print("\n")
+    print(f"QMTT - Conexion Establecida {datetime.datetime.now()}")
 
 def MESSAGEISHION(client, userdata, msg):
     cuerdas.submit(BLAST, msg.payload.decode())          
@@ -115,7 +117,6 @@ def MESSAGEISHION(client, userdata, msg):
 def TENDEISHION(a):
     tendencia = 0
     qwer = 0
-    # print("Ultimas 5 Lecturas = " + str(a))
     axu = str(a)
     a = [ele for ele in a if ele > 0] 
 
@@ -159,13 +160,13 @@ def TENDEISHION(a):
 
 def EL_COLECCIONISTA():
     for r in db.list_collection_names():
-        if r != 'Historial' and r != 'Enterprises':
+        if r != 'devices' and r != 'Enterprises':
             for c in enterprises.aggregate([{'$match': {'devices.id': {'$eq': r.split('_')[1]}}},
                             {'$unwind': '$devices'},
                             {'$match' : {'devices.id': {'$eq': r.split('_')[1]}}},
                             {'$project': {'_id':0,  'name': '$devices.name', 'alive': '$devices.online'}}
                             ]):
-                print(f"{r.split('_')[1]} - {c['alive']}")
+                # print(f"{r.split('_')[1]} - {c['alive']}")
                 if c['alive']:
                     if db['fHistorial_' + r.split('_')[1]].count_documents({}) > 0:
                         v1_arr, v2_arr, k_arr = [], [], []
@@ -187,9 +188,6 @@ def EL_COLECCIONISTA():
                         print(f"El equipo {r.split('_')[1]} aun no tiene datos")
 
 def INSERTAR_HISTORIAL(first_msg, opcion, msg_payload: str):
-    # Step 10
-    # obetengo Nombre, Setpoint, e Histeresis
-    # Inicio contador en 0
     conta = 0
     for z in enterprises.aggregate([{'$match': {'devices.id': {'$eq': msg_payload.split('/')[1]}}},
                             {'$unwind': '$devices'},
@@ -200,14 +198,11 @@ def INSERTAR_HISTORIAL(first_msg, opcion, msg_payload: str):
         _setpoint = z['sp']
         hisH = z['hmax']
         hisL  = z['hmin']
-    # Ontengo Id y temperaturas actuales
+
     d_id = msg_payload.split('/')[1]
     tempInt_actual = float(msg_payload.split('/')[2])
     tempExt = float(msg_payload.split('/')[3])
 
-    # Step 20
-    # Pregunto si es el primer msg en fakeH
-    # Si es el primer msg en fakeH
     if first_msg:
         tempMax = float(msg_payload.split('/')[2])
         dateMax = datetime.datetime.now()
@@ -216,14 +211,13 @@ def INSERTAR_HISTORIAL(first_msg, opcion, msg_payload: str):
         _date = datetime.datetime.now()
         conta = 0
         fake = tempInt_actual
-        print("Primer msg en F")
+        # print("Primer msg en F")
     
-    # Si no es el primer msg en fakeH
     else:
         # Pregunto si es el primer msg en H
         # Si no es el primer msg en H
         if historial.count_documents({'d_id': d_id}) > 0:
-            print("No es el primer msg en H")
+            # print("No es el primer msg en H")
             # do es para saber si aumento contador o no
             do = False
             # Obtengo las ultimas Max/Min
@@ -234,7 +228,7 @@ def INSERTAR_HISTORIAL(first_msg, opcion, msg_payload: str):
                 dateMin = g['dateMin']
                 # Si el msg es tipo 30
                 if opcion == 30:
-                    print(f"msg tipo 30 do={do} fake={fake}")
+                    # print(f"msg tipo 30 do={do} fake={fake}")
                     do = False
                     fake = tempInt_actual
                     x = (g['date'] + datetime.timedelta(seconds=300)) - datetime.datetime.now()    
@@ -244,10 +238,10 @@ def INSERTAR_HISTORIAL(first_msg, opcion, msg_payload: str):
                     do = True
                     if float(msg_payload.split('/')[2]) != -127.0 and float(msg_payload.split('/')[2]) != 111:
                         fake = tempInt_actual
-                        print(f"do={do} fake={fake} actual")
+                        # print(f"do={do} fake={fake} actual")
                     else:
                         fake = g['fake']
-                        print(f"do={do} fake={fake} ultima")
+                        # print(f"do={do} fake={fake} ultima")
 
             # Si la temperatura supero la Maxima
             if float(msg_payload.split('/')[2]) > tempMax and float(msg_payload.split('/')[2]) != -127:  
@@ -260,31 +254,31 @@ def INSERTAR_HISTORIAL(first_msg, opcion, msg_payload: str):
 
             _date = datetime.datetime.now() + x
             # Si la tempActual > a la ultima(buena) + 20% or < a la ultima(buena) - 20% ==> acknowlage
-            print(f"if {tempInt_actual} > {g['fake']} * 1.2 <")
+            # print(f"if {tempInt_actual} > {g['fake']} * 1.2 <")
             if tempInt_actual > g['fake'] * 1.2 or tempInt_actual < g['fake'] * 0.8:
-                print("True")
-                for con in db['Historial'].find({'d_id': msg_payload.split('/')[1]},{'_id':0,'contador':1, 'date':1}).sort('date',-1).limit(1):
+                # print("True")
+                for con in db['devices'].find({'d_id': msg_payload.split('/')[1]},{'_id':0,'contador':1, 'date':1}).sort('date',-1).limit(1):
                     # Si aumento contador
                     if do:
                         conta = (con['contador'] + 1) if con['contador'] < 3 else 3 
                         fake = g['fake']
-                        print(f"contador={conta} fake={fake} ultima")
+                        # print(f"contador={conta} fake={fake} ultima")
                     # No aumento contador
                     else:
                         conta = con['contador']
                         fake = tempInt_actual
-                        print(f"contador={conta} fake={fake} actual")
+                        # print(f"contador={conta} fake={fake} actual")
             # Si no es acknowlage
             else:
-                print("False")
+                # print("False")
                 conta = 0
                 fake = tempInt_actual
-                print(f"contador={conta} fake={fake} False")
+                # print(f"contador={conta} fake={fake} False")
 
         # Si es el primer msg en H
         else:
             # Los valores son iguales a los que actuales (No comparo)
-            print("Es el primer msg en H")
+            # print("Es el primer msg en H")
             tempMax = float(msg_payload.split('/')[2])
             dateMax = datetime.datetime.now()
             tempMin = float(msg_payload.split('/')[2])
@@ -292,7 +286,7 @@ def INSERTAR_HISTORIAL(first_msg, opcion, msg_payload: str):
             _date = datetime.datetime.now()
             conta = 0
             fake = tempInt_actual
-            print("Punk")
+            # print("Punk")
 
     dic = {
         'd_id': d_id,
@@ -316,17 +310,16 @@ def INSERTAR_HISTORIAL(first_msg, opcion, msg_payload: str):
                         {'$project':{'_id':0, 'index': {'$indexOfArray': ["$devices.id", id_dispositivo]}}}]):
         idx = str(r['index'])
 
-    # enterprises.update_one({'devices.id': id_dispositivo},{'$set': {
-    #                                          f'devices.{idx}.tempInt' : tempInt_actual,
-    #                                          f'devices.{idx}.tempExt' : tempExt,
-    #                                          f'devices.{idx}.tempMax' : tempMax,
-    #                                          f'devices.{idx}.dateMax' : dateMax,
-    #                                          f'devices.{idx}.tempMin' : tempMin,
-    #                                          f'devices.{idx}.dateMin' : dateMin,
-    #                                          }})
+    enterprises.update_one({'devices.id': id_dispositivo},{'$set': {
+                                             f'devices.{idx}.tempInt' : tempInt_actual,
+                                             f'devices.{idx}.tempExt' : tempExt,
+                                             f'devices.{idx}.tempMax' : tempMax,
+                                             f'devices.{idx}.dateMax' : dateMax,
+                                             f'devices.{idx}.tempMin' : tempMin,
+                                             f'devices.{idx}.dateMin' : dateMin,
+                                             }})
 
     historial.insert_one(dic)
-    print("Insert =>=>")
 
 def FAHRENHEIT_OR_CELCIUS(v_arr2, k_arr2):
     value_array2 = []
@@ -344,23 +337,32 @@ def FAHRENHEIT_OR_CELCIUS(v_arr2, k_arr2):
 def BUCLE_ULTRA_EGO():
     while True:
         EL_COLECCIONISTA()
-        time.sleep(30)
+        print(f"UE - {datetime.datetime.now()}")
+        time.sleep(300)
 
-print("Iniciando MongoDB")
-mongo = pymongo.MongoClient("mongodb+srv://monzav:mongodb057447@cluster0.qilrdwg.mongodb.net/?retryWrites=true&w=majority")
-db = mongo['Tempec_Cloud']                                                   
-enterprises = db['Enterprises']                                            
-historial = db['Historial']            
-print("MongoDB iniciado")
+try:
+    print("Iniciando MongoDB")
+    mongo = pymongo.MongoClient("mongodb+srv://monzav:mongodb057447@cluster0.qilrdwg.mongodb.net/?retryWrites=true&w=majority")
+    db = mongo['Tempec_Cloud']                                                   
+    enterprises = db['Enterprises']                                            
+    historial = db['devices']            
+    print("MongoDB iniciado")
+except:
+    print("Error conexion MongoDB")
 
-print("Iniciando MQTT")
-monzav = mqtt.Client()  
-monzav.connect("test.mosquitto.org", 1883, 60)
-print("MQTT Iniciando")
+try:
+    print("Iniciando MQTT")
+    mqttClient = mqtt.Client()  
+    mqttClient.reconnect_delay_set(5,10)
+    mqttClient.on_connect = CONEISHION                                     
+    mqttClient.on_message = MESSAGEISHION    
+    # mqttClient.on_disconnect = DISCONEISHION
+    mqttClient.connect("test.mosquitto.org", 1883, 60)    
+    print("MQTT Iniciando")      
+except:
+    print(f"Desconectado a {datetime.datetime.now()}")
 
-monzav.on_connect = CONEISHION                                     
-monzav.on_message = MESSAGEISHION                                                 
 #monzav.connect("6c665d3e9b974b849cffc4266267b47b.s2.eu.hivemq.cloud", 8883, 10)
 cuerdas.submit(BUCLE_ULTRA_EGO)
-# executor.submit(BUCLE_ULTRA_INSTINTO)
-monzav.loop_forever()
+cuerdas.submit(BUCLE_ULTRA_INSTINTO)
+mqttClient.loop_forever()
