@@ -1,21 +1,22 @@
 from datetime import datetime
-from pymongo import MongoClient
+import pymongo
 
-mongo = MongoClient("mongodb+srv://monzav:mongodb057447@cluster0.qilrdwg.mongodb.net/?retryWrites=true&w=majority")
-db = mongo['Tempec_Cloud']
-enterprise = db['Enterprises']
+mongo = pymongo.MongoClient("mongodb+srv://rafaelDiinpec:Mr178910@tc.kshjevt.mongodb.net/?retryWrites=true&w=majority")
+db = mongo['test']
+enterprise = db['enterprises']
 # devices = db['devices_id']
 
 def registrar_dispositivo():
-    e_id = input("ingrese sú _id: ")
+    e_id = input("ingrese sú enterprise: ")
     dic = {
         'id': input("ingrese id de dispositivo: "),
         'name': input("name: "),
-        'setpoint': float(input("setpoint: ")),
+        # 'enterprise': e_id,
+        'setPoint': float(input("setpoint: ")),
         'tempInt': 0.0,
         'tempExt': 0.0,
-        'hisH': float(input("histeresis_high: ")),
-        'hisL': float(input("histeresis_low: ")),
+        'histH': float(input("histeresis_high: ")),
+        'histL': float(input("histeresis_low: ")),
         'tempMax': 0.0,
         'dateMax': datetime.now(),
         'tempMin': 0.0,
@@ -26,32 +27,33 @@ def registrar_dispositivo():
         'grados':'C',
         'last_name': 'Monzav',
         'last_setpoint': 0.0,
-        'last_hisH': 0.0,
-        'last_hisL': 0.0,
+        'last_histH': 0.0,
+        'last_histL': 0.0,
         'last_alarmaH':0.0,
         'last_alarmaL':0.0,
         'last_grados':'C',
-        'last_update': datetime.now()
+        'date': datetime.now()
     }
 
-    enterprise.update_one({'_id': e_id }, {'$push' : {'devices' : dic }})
+    enterprise.update_one({'enterprise': e_id }, {'$push' : {'devices' : dic }})
 
     # devices.insert_one({'dev_id': ddd})
     print("Done!\n\n")
 
 def registrar_usuario():
-    u_id = input("id: ")
+    enter = input("enterprise: ")
     u_name = input("name: ")
     u_password = input("password: ")
     u_phone = input("phone: ")
     u_email = input("email: ")
     dic = {
-        '_id':u_id,
+        'enterprise':enter,
         'name':u_name,
         'password':u_password,
         'email':u_email,
         'phone': int(u_phone),
-        'devices':[]
+        'devices':[],
+        'date': datetime.now()
     }
 
     # enterprise.update_one({'e_id': id }, {'$push' : {'users' : dic }})
