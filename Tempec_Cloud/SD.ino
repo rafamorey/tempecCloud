@@ -16,7 +16,11 @@ void readFile(fs::FS &fs, const char * path){
 
     //Serial.print("Read from file: ");
     while(file.available()){
-      Serial.write(file.read());
+      DATOSD += (char)file.read();
+      /*#ifdef monitoreo
+      Serial.print("DATO SD: ");
+      Serial.println(DATOSD);
+      #endif*/
       //sendTime = millis();
     }
     file.close();

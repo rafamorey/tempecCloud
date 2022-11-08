@@ -4,6 +4,7 @@ void temperatura()
   {
     SENSOR_IN.requestTemperatures();
     SENSOR_OUT.requestTemperatures();
+    lastemperaturaIn = temperaturaIn;
     if(Termometrica == "C")
     {
       temperaturaIn = SENSOR_IN.getTempCByIndex(0);
@@ -30,38 +31,48 @@ void temperatura()
     lecturaMillis = millis();
   }
   
-  if(temperaturaIn >= (SetPoint+Histeresis))
-  {
-    digitalWrite(OUT_COOL,HIGH);
-    digitalWrite(OUT_HEAT,LOW);
-    COOLING = true;
-    HEATING = false;
-  }
-  else if(temperaturaIn <= SetPoint && COOLING == true)
-  {
-    digitalWrite(OUT_COOL,LOW);
-    digitalWrite(OUT_HEAT,LOW);
-    parpadeo = false;
-    COOLING = false;
-    HEATING = false;
-    SIM = 0;
-  }
-  else if(temperaturaIn <= (SetPoint-Histeresis))
-  {
-    digitalWrite(OUT_COOL,LOW);
-    digitalWrite(OUT_HEAT,HIGH);
-    COOLING = false;
-    HEATING = true;
-  }
-  else if(temperaturaIn >= SetPoint && HEATING == true)
-  {
-    digitalWrite(OUT_COOL,LOW);
-    digitalWrite(OUT_HEAT,LOW);
-    COOLING = false;
-    HEATING = false;
-    SIM = 0;
-    parpadeo = false;
-  }
+  /*if(cambio == false)
+  {//*/
+    if(temperaturaIn >= (SetPoint+(Histeresis/2)))
+    {
+      portiempo(300000, 300000);
+      COOLING = true;
+      HEATING = false;
+    }
+    else if(temperaturaIn <= (SetPoint + 0.2) && temperaturaIn > SetPoint && COOLING == true)
+    {
+      portiempo(120000, 300000);
+      COOLING = true;
+      HEATING = false;
+      NEUTRAL = true;
+      parpadeo = false;
+      SIM = 0;
+    }
+    else if((temperaturaIn <= SetPoint && COOLING == true) || (temperaturaIn >= SetPoint && HEATING == true))
+    {
+      portiempo(0, 300000);
+      COOLING = false;
+      HEATING = false;
+      NEUTRAL = true;
+      SIM = 0;
+      parpadeo = false;
+    }
+    else if(temperaturaIn >= (SetPoint - 0.2) && temperaturaIn < SetPoint && HEATING == true)
+    {
+      portiempo(0, 300000);
+      COOLING = false;
+      HEATING = true;
+      NEUTRAL = true;
+      SIM = 0;
+      parpadeo = false;
+    }
+    else if(temperaturaIn <= (SetPoint - (Histeresis / 2)))
+    {
+      portiempo(0, 300000);
+      COOLING = false;
+      HEATING = true;
+      NEUTRAL = false;
+    }
   crear();
   alertas();
 }
@@ -78,8 +89,8 @@ void crear()
   MENSAJE += temperaturaIn;
   MENSAJE += "/";
   MENSAJE += temperaturaOut;
-  MENSAJE += "/1/";
-  MENSAJE += "0";
+  /*  MENSAJE += "/1/";
+  MENSAJE += "0";//*/
 }
 
 void crearveinte()
@@ -98,7 +109,6 @@ void crearveinte()
   client.publish(TOPIC,msgIn);
   twenty = false;
 }
-
 
 
 void alertas()
@@ -123,4 +133,34 @@ void alertas()
     SIM = 0;
   }
   
+}
+
+
+void portiempo(unsigned long ON, unsigned long OF)
+{
+  if(ON == 0)
+  {
+    digitalWrite(OUT_COOL,LOW);
+    digitalWrite(OUT_HEAT,LOW);
+  }
+  else
+  {
+    if(millis() - activacionMillis <= (ON + OF))
+    {
+      if(millis() - activacionMillis > ON)
+      {
+        digitalWrite(OUT_COOL,LOW);
+        digitalWrite(OUT_HEAT,LOW);
+      }
+      else
+      {
+        digitalWrite(OUT_COOL,HIGH);
+        digitalWrite(OUT_HEAT,LOW);
+      }
+    }
+    else
+    {
+      activacionMillis = millis();
+    }
+  }
 }

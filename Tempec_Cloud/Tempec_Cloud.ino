@@ -28,7 +28,7 @@ String histeresis_l = "";
 
 
 /* SI monitoreo SE ACTIVA IMPRIMIRA DATOS DE CONFIGURACION DE WIFI Y TEMPERATURA GUARDADOS EN LA EEPROM*/
-#define monitoreo
+//#define monitoreo
 
 /*----------SENSOR DE TEMPERATURA----------*/
 /*ESPACIOS DE EEPROM
@@ -64,6 +64,7 @@ String histeresis_l = "";
  */
  boolean HEATING = false;
  boolean COOLING = false;
+ boolean NEUTRAL = false;
 /*-----------------------------------------*/
 
 /*----------WIFI Y BLUETOOTH----------*/
@@ -128,6 +129,9 @@ String histeresis_l = "";
 #define NOTGRADO B10011100
 #define NOTALTO B10001001
 #define NOTBAJO B11000111
+#define ERRORE B01111001
+#define ERRORr B01010000
+#define ERRORo B01011100
 
 int numeros[10] = {CERO,UNO,DOS,TRES,CUATRO,CINCO,SEIS,SIETE,OCHO,NUEVE};
 int notnumeros[10] = {NOTCERO,NOTUNO,NOTDOS,NOTTRES,NOTCUATRO,NOTCINCO,NOTSEIS,NOTSIETE,NOTOCHO,NOTNUEVE};
@@ -163,6 +167,7 @@ unsigned long timerParpadeo = 0;
 
 /*MICRO SD*/
 #define PinSD 4
+#define EEPROM_USARSD 450
 /*--------*/
 
 /*RADIO FRECUENCIA*/
@@ -193,7 +198,7 @@ char msgIn[MSG_BUFFER_SIZE];//
 int value;
 boolean WIFI = false;//indicador que debera cambiar de estado si el wifi esta disponible o no
 String MENSAJE = "";//usada para formar el mensaje de topico 10
-String ID = "AAAB";//id consta de cuatro caracteres alfabeticos
+String ID = "AAAC";//id consta de cuatro caracteres alfabeticos
 String MAJIN = "";//usada para formar el mensaje entrante
 String UBICACION = "";//usada para manejar la ubicacion
 String VEINTE = "";//usada para formar el mensaje de topico 20
@@ -216,9 +221,19 @@ float Histeresis = 1;
 float HisN = 1;
 float Warning_heat = 2;
 float Warning_cold = 2;
+float startRange  = 0.2;//RANGO EN EL QUE EMPIEZA A TRABAJAR POR TIEMPOS
 String Termometrica = "C";
 unsigned long lecturaMillis = 0;
 unsigned long intervalo = 3000;/*INTERVALO DE LECTURA*/
+unsigned long activacion = 300000;//INTERVALO DE ACTIVACIÓN Y DESACTIVACIÓN 
+unsigned long activacionMillis = 0;//VARIABLE DE COMPARACION PARA ACTIVACION
+unsigned long descativacionMillis = 0;
+boolean relevo = false;
+boolean cambio = false;
+boolean subida = false;
+boolean bajada = false;
+boolean ACT = false;
+boolean DES = false;
 OneWire oneWire_in(ONE_WIRE_BUS);
 OneWire oneWire_out(TWO_WIRE_BUS);
 DallasTemperature SENSOR_IN(&oneWire_in);
@@ -227,6 +242,10 @@ DallasTemperature SENSOR_OUT(&oneWire_out);
 
 /*VARIABLES PARA MEMORIA SD*/
 uint16_t sumac = 0;
+boolean onceuponatime = false;
+boolean haydatos = false;
+unsigned long savetime = 0;
+String DATOSD = "";
 /*-------------------------*/
 
 /*VARIABLES DE BLUETOOTH SERIAL*/
@@ -351,20 +370,24 @@ void setup_wifi()
   WiFi.begin(ssid, password);
   unsigned long waiting = 0;
   unsigned long imposible = millis();
-  while(WiFi.status() != WL_CONNECTED && millis() - imposible <= 3000)
+  while(WiFi.status() != WL_CONNECTED && millis() - imposible <= 10000)
   {
-    digitalWrite(LED_WIFI,HIGH);
     if(millis() - waiting >= 500)
     {
-      digitalWrite(LED_WIFI,LOW);
+      digitalWrite(LED_WIFI,HIGH);
       waiting = millis();
     }
-    
+    digitalWrite(LED_WIFI,HIGH);
+    onceuponatime = true;
+    EEPROM.put(EEPROM_USARSD, onceuponatime);
+    EEPROM.commit();
   }
-  if(millis() - imposible >= 3000)
+  if(millis() - imposible >= 10002)
   {
     Serial.println("IMPOSIBLE CONECTAR A RED WIFI");
     digitalWrite(LED_WIFI,LOW);
+    WIFI = false;
+    //onceuponatime = false;
   }
   randomSeed(micros());
 }
@@ -375,7 +398,7 @@ void callback(char* topic,byte* payload, unsigned int length)
   {
     //Aqui poner codigo para el procesamiento de la informacion entrante
     //Normalmente es asi como se presenta para imprimirla en el puerto serial:
-    //20--TIPO/ID/NOMBRE/SETPOINT/Histeresis POSITIVA/Histeresis NEGATIVA
+    //20--TIPO/ID/NOMBRE/SETPOINT/Histeresis POSITIVA/Histeresis NEGATIVA/ALERTA SUPERIOR/ALERTA INFERIOR/METRICA
     //----02/AAAA/
     //10--TIPO/ID/TEMPERATURA INTERIOR/TEMPERATURA EXTERIOR/OUT0/OUT1
     MAJIN += (char)payload[i];
@@ -396,7 +419,7 @@ void callback(char* topic,byte* payload, unsigned int length)
       /*NO DERBERIAS HABER ECIBIDO ESTE MENSAJE*/
       break;
       case 20:
-      for(int x = 0; x <= 4; x++)
+      for(int x = 0; x <= 7; x++)
       {
         inicioAnt = MAJIN.indexOf('/',inicio);
         DATOS[x] = MAJIN.substring(inicio,inicioAnt);
@@ -407,11 +430,20 @@ void callback(char* topic,byte* payload, unsigned int length)
       SetPoint = DATOS[1].toFloat();
       Histeresis = DATOS[2].toFloat();
       HisN = DATOS[3].toFloat();
+      Warning_heat = DATOS[4].toFloat();
+      Warning_cold = DATOS[5].toFloat();
+      Termometrica = DATOS[6];
       MAJIN = "";
       EEPROM.put(EEPROM_SETPOINT, SetPoint);
       EEPROM.put(EEPROM_HISTENEG, HisN);
       EEPROM.put(EEPROM_HISTEPOS, Histeresis);
+      EEPROM.put(EEPROM_WARNINGH, Warning_heat);
+      EEPROM.put(EEPROM_WARNINGC, Warning_cold);
+      EEPROM.put(EEPROM_METRICA, Termometrica.substring(0,1));
       EEPROM.commit();
+      break;
+      case 30:
+      /**/
       break;
       default:
       break;}
@@ -427,8 +459,11 @@ void reconnect()
     if(client.connect(clientId.c_str()))
     {
       Serial.println("connected");
+      onceuponatime = true;
      // client.publish(Topic, "hello world");/*Publica para saber que esta conectado*/
       client.subscribe(TOPSUB);/*el topic de publicacion puede ser diferente al de subscripcion*/ 
+      EEPROM.put(EEPROM_USARSD, onceuponatime);
+      EEPROM.commit();
     }
     else
     {
@@ -492,8 +527,8 @@ void appendFile(fs::FS &fs, const char * path, const char * message){
 void setup()
 {
   EEPROM.begin(512);
-  Serial.begin(9600);
-  Serial2.begin(9600,SERIAL_8N1,RX2,TX2);
+  Serial.begin(115200);
+  Serial2.begin(115200,SERIAL_8N1,RX2,TX2);
   //setup_wifi();
   client.setServer(mqtt_server, 1883);
   client.setCallback(callback);//*/
@@ -510,6 +545,13 @@ void setup()
   server.on("/Cambio", Cambio);
   server.onNotFound(handle_NotFound);
   server.begin();
+  
+  if(!SD.begin(PinSD))
+  {
+    #ifdef monitoreo
+    Serial.println("MEMORIA SD NO INICIALIZADA");
+    #endif
+  }
   
   pinMode(DATO,OUTPUT);
   pinMode(CLOCK,OUTPUT);
@@ -543,6 +585,7 @@ void loop()
   if(WIFI)
   {
     serverconectado = true;
+    digitalWrite(LED_WIFI,HIGH);
     if (!client.connected())
     {
       reconnect();
@@ -568,6 +611,52 @@ void loop()
     }
   }
   temperatura();
+  
+  if(WIFI == false && onceuponatime == true)
+  {
+    if(millis() - savetime >= 60000)
+    {
+      String vanquivoide = "";
+      vanquivoide += temperaturaIn;
+      vanquivoide += "/";
+      vanquivoide += temperaturaOut;
+      appendFile(SD, "/TEMPERATURAS.txt",vanquivoide.c_str());
+      savetime = millis();
+      haydatos = true;
+      #ifdef monitoreo
+      Serial.println("TEMPERATURA GUARDADA EN MEMORIA SD");
+      #endif
+    }
+  }
+  else
+  {
+    savetime = millis();
+  }
+  if(WIFI == true && haydatos == true)
+  {
+    enviarDatosSD();
+    int cantidad = 0;
+    cantidad = (DATOSD.length()/11);
+    for(int z = 1; z <= cantidad; z++)
+    {
+      String envio = "";
+      envio = "30/";
+      envio += ID;
+      envio += "/";
+      envio += DATOSD.substring(((z-1)*11),(z*11));
+      strcpy(msg,envio.c_str());
+      client.publish(TOPIC,msg);
+      #ifdef monitoreo
+      Serial.print("DATO ENVIADO: ");
+      Serial.println(envio);
+      #endif
+    }
+    haydatos = false;
+    #ifdef monitoreo
+    Serial.println("////////////TEMPERATURA ENVIADA AL SERVIDOR\\\\\\\\\\\\\\");
+    #endif
+    DATOSD = "";
+  }
   server.handleClient();
 }
 
@@ -585,6 +674,7 @@ void extraccion_de_EEPROM()
    EEPROM.get(EEPROM_WARNINGH, Warning_heat);
    EEPROM.get(EEPROM_WARNINGC, Warning_cold);
    EEPROM.get(EEPROM_METRICA, trica);
+   EEPROM.get(EEPROM_USARSD, onceuponatime);
    /*EEPROM.get(EEPROM_ILECTURA,);
    EEPROM.get(EEPROM_METRICA,);//*/
    EEPROM.commit();
@@ -593,6 +683,7 @@ void extraccion_de_EEPROM()
    Serial.println(lengthssid);
    Serial.print("LARGO PASSWORD");
    Serial.println(lengthpass);
+   Serial.println(onceuponatime ? "ONCE TRUE" : "ONCE FALSE");
    #endif
    char arrayssid[lengthssid];
    char arraypass[lengthpass];
