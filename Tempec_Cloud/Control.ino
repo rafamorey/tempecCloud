@@ -33,7 +33,7 @@ void temperatura()
   
   /*if(cambio == false)
   {//*/
-    if(temperaturaIn >= (SetPoint+(Histeresis/2)))
+    if(temperaturaIn >= ((SetPoint + (Histeresis/2)) - 0.1))
     {
       portiempo(300000, 300000);
       COOLING = true;
@@ -41,7 +41,7 @@ void temperatura()
     }
     else if(temperaturaIn <= (SetPoint + 0.2) && temperaturaIn > SetPoint && COOLING == true)
     {
-      portiempo(120000, 300000);
+      portiempo(60000, 300000);
       COOLING = true;
       HEATING = false;
       NEUTRAL = true;
