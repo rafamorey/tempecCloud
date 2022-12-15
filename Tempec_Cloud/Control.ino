@@ -15,8 +15,19 @@ void temperatura()
       temperaturaIn = SENSOR_IN.getTempFByIndex(0);
       temperaturaOut = SENSOR_OUT.getTempFByIndex(0);
     }
+    else
+    {
+      temperaturaIn = SENSOR_IN.getTempCByIndex(0);
+      temperaturaOut = SENSOR_OUT.getTempCByIndex(0);
+    }
     Serial.print("TEMPERATURA INTERIOR: ");
     Serial.println(temperaturaIn);
+    if(temperaturaIn <= 0)
+    {
+      digitalWrite(WAR_COOL,HIGH);
+      digitalWrite(WAR_HEAT,HIGH);
+      Serial.println("ENCENDIDOS");
+    }
     Serial.print("TEMPERATURA EXTERIOR: ");
     Serial.println(temperaturaOut);
     Serial.print("VOLTAJE EN 21: ");
@@ -30,49 +41,20 @@ void temperatura()
    // }
     lecturaMillis = millis();
   }
-  
-  /*if(cambio == false)
-  {//*/
-    if(temperaturaIn >= ((SetPoint + (Histeresis/2)) - 0.1))
+    if(temperaturaIn >= (SetPoint+0.4))
     {
-      portiempo(300000, 300000);
-      COOLING = true;
-      HEATING = false;
+      uno = 300000;
+      dos = 300000;
     }
-    else if(temperaturaIn <= (SetPoint + 0.2) && temperaturaIn > SetPoint && COOLING == true)
+    else if(temperaturaIn <= (SetPoint+0.2))
     {
-      portiempo(60000, 300000);
-      COOLING = true;
-      HEATING = false;
-      NEUTRAL = true;
-      parpadeo = false;
-      SIM = 0;
+      uno = 0;
+      dos = 0;
+      digitalWrite(OUT_COOL,LOW);
+      digitalWrite(OUT_HEAT,LOW);
     }
-    else if((temperaturaIn <= SetPoint && COOLING == true) || (temperaturaIn >= SetPoint && HEATING == true))
-    {
-      portiempo(0, 300000);
-      COOLING = false;
-      HEATING = false;
-      NEUTRAL = true;
-      SIM = 0;
-      parpadeo = false;
-    }
-    else if(temperaturaIn >= (SetPoint - 0.2) && temperaturaIn < SetPoint && HEATING == true)
-    {
-      portiempo(0, 300000);
-      COOLING = false;
-      HEATING = true;
-      NEUTRAL = true;
-      SIM = 0;
-      parpadeo = false;
-    }
-    else if(temperaturaIn <= (SetPoint - (Histeresis / 2)))
-    {
-      portiempo(0, 300000);
-      COOLING = false;
-      HEATING = true;
-      NEUTRAL = false;
-    }
+    portiempo(uno,dos);
+    
   crear();
   alertas();
 }

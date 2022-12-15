@@ -10,7 +10,7 @@
 #include <WebServer.h>
 
 
-static const char *SSID = "TEMPEC";
+static const char *SSID = "TEM";
 static const char *PASSWORD = "DIINPEC123";
 
 
@@ -185,8 +185,8 @@ int voltaje = 0;
 /*----------VARIABLES PARA WIFI----------*/
 /*char* ssid = "404";//???????????????
 char* password = "404";//?????????????*/
-const char* ssid = "";//"INFINITUM3F41_2.4";
-const char* password = "";//"xd7TS6tsHJ";
+const char* ssid = "INFINITUM6BF5";//"INFINITUM3F41_2.4";
+const char* password = "GnGhxrWEm3";//"xd7TS6tsHJ";
 const char* mqtt_server = "test.mosquitto.org"/*"9bd78e371b064745883b9e4ede7be333.s2.eu.hivemq.cloud"//*/;
 WiFiClient espClient;
 PubSubClient client(espClient);
@@ -234,6 +234,9 @@ boolean subida = false;
 boolean bajada = false;
 boolean ACT = false;
 boolean DES = false;
+unsigned long uno = 0;
+unsigned long dos = 0;
+
 OneWire oneWire_in(ONE_WIRE_BUS);
 OneWire oneWire_out(TWO_WIRE_BUS);
 DallasTemperature SENSOR_IN(&oneWire_in);
@@ -370,7 +373,7 @@ void setup_wifi()
   WiFi.begin(ssid, password);
   unsigned long waiting = 0;
   unsigned long imposible = millis();
-  while(WiFi.status() != WL_CONNECTED && millis() - imposible <= 10000)
+  while(WiFi.status() != WL_CONNECTED && millis() - imposible <= 3000)
   {
     if(millis() - waiting >= 500)
     {
@@ -382,7 +385,7 @@ void setup_wifi()
     EEPROM.put(EEPROM_USARSD, onceuponatime);
     EEPROM.commit();
   }
-  if(millis() - imposible >= 10002)
+  if(millis() - imposible >= 3000)
   {
     Serial.println("IMPOSIBLE CONECTAR A RED WIFI");
     digitalWrite(LED_WIFI,LOW);
@@ -527,13 +530,14 @@ void appendFile(fs::FS &fs, const char * path, const char * message){
 void setup()
 {
   EEPROM.begin(512);
-  Serial.begin(115200);
-  Serial2.begin(115200,SERIAL_8N1,RX2,TX2);
-  //setup_wifi();
+  Serial.begin(9600);
+   EEPROM.put(EEPROM_METRICA,'C');
+  //Serial2.begin(9600,SERIAL_8N1,RX2,TX2);
+  setup_wifi();
   client.setServer(mqtt_server, 1883);
   client.setCallback(callback);//*/
   SENSOR_IN.begin();
-  //SENSOR_OUT.begin();
+  SENSOR_OUT.begin();
   WiFi.softAP(SSID, PASSWORD);
   IPAddress myIP = WiFi.softAPIP();
   Serial.print("IP: ");
